@@ -7,9 +7,11 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <errno.h>
+#include <ctype.h>
 #include <stdio.h>
 
 #include "git-annotated-source.h"
+#include "git-common.h"
 
 static void git_annotated_source_dispose (GObject *object);
 static void git_annotated_source_finalize (GObject *object);
@@ -29,7 +31,18 @@ struct _GitAnnotatedSourcePrivate
   guint child_watch_source;
   guint child_stdout_source;
   guint child_stderr_source;
+  gint child_exit_code;
+  GString *error_string;
 };
+
+enum
+  {
+    COMPLETED,
+
+    LAST_SIGNAL
+  };
+
+static guint client_signals[LAST_SIGNAL];
 
 static void
 git_annotated_source_class_init (GitAnnotatedSourceClass *klass)
@@ -39,13 +52,27 @@ git_annotated_source_class_init (GitAnnotatedSourceClass *klass)
   gobject_class->dispose = git_annotated_source_dispose;
   gobject_class->finalize = git_annotated_source_finalize;
 
+  client_signals[COMPLETED]
+    = g_signal_new ("completed",
+		    G_TYPE_FROM_CLASS (gobject_class),
+		    G_SIGNAL_RUN_LAST,
+		    G_STRUCT_OFFSET (GitAnnotatedSourceClass, completed),
+		    NULL, NULL,
+		    g_cclosure_marshal_VOID__POINTER,
+		    G_TYPE_NONE, 1,
+		    G_TYPE_POINTER);
+
   g_type_class_add_private (klass, sizeof (GitAnnotatedSourcePrivate));
 }
 
 static void
 git_annotated_source_init (GitAnnotatedSource *self)
 {
-  self->priv = GIT_ANNOTATED_SOURCE_GET_PRIVATE (self);
+  GitAnnotatedSourcePrivate *priv;
+
+  priv = self->priv = GIT_ANNOTATED_SOURCE_GET_PRIVATE (self);
+
+  priv->error_string = g_string_new ("");
 }
 
 static void
@@ -113,6 +140,8 @@ git_annotated_source_finalize (GObject *object)
 {
   GitAnnotatedSource *self = (GitAnnotatedSource *) object;
 
+  g_string_free (self->priv->error_string, TRUE);
+
   G_OBJECT_CLASS (git_annotated_source_parent_class)->finalize (object);
 }
 
@@ -133,8 +162,33 @@ git_annotated_source_check_complete (GitAnnotatedSource *source)
       && priv->child_stdout_source == 0
       && priv->child_stderr_source == 0)
     {
-      printf ("completed!\n");
+      GError *error = NULL;
+
       git_annotated_source_close_process (source, FALSE);
+
+      if (priv->child_exit_code)
+	{
+	  gssize len;
+
+	  /* Remove spaces at the end of the error string */
+	  for (len = priv->error_string->len - 1;
+	       len > 0 && isspace (priv->error_string->str[len]);
+	       len--);
+	  g_string_truncate (priv->error_string, len);
+
+	  if (len > 0)
+	    g_set_error (&error, GIT_ERROR, GIT_ERROR_EXIT_STATUS,
+			 "Error invoking git: %s",
+			 priv->error_string->str);
+	  else
+	    g_set_error (&error, GIT_ERROR, GIT_ERROR_EXIT_STATUS,
+			 "Error invoking git");
+	}
+
+      g_signal_emit (source, client_signals[COMPLETED], 0, error);
+
+      if (error)
+	g_error_free (error);
     }
 }
 
@@ -147,17 +201,19 @@ git_annotated_source_on_child_exit (GPid pid, gint status, gpointer data)
   g_spawn_close_pid (pid);
   priv->child_pid = 0;
 
+  priv->child_exit_code = status;
+
   git_annotated_source_check_complete (source);
 }
 
 static void
 git_annotated_source_on_read_error (GitAnnotatedSource *source, GError *error)
 {
-  fprintf (stderr, "read error: %s\n", error->message);
+  git_annotated_source_close_process (source, TRUE);
+
+  g_signal_emit (source, client_signals[COMPLETED], 0, error);
 
   g_error_free (error);
-
-  git_annotated_source_close_process (source, TRUE);
 }
 
 static gboolean
@@ -195,9 +251,6 @@ git_annotated_source_on_child_stdout (GIOChannel *io_source,
       break;
     }
 
-  if (!ret)
-    priv->child_stdout_source = 0;
-
   return ret;
 }
 
@@ -221,9 +274,7 @@ git_annotated_source_on_child_stderr (GIOChannel *io_source,
       break;
 
     case G_IO_STATUS_NORMAL:
-      fputs ("got stderr: \"", stdout);
-      fwrite (buf, bytes_read, 1, stdout);
-      fputs ("\"\n", stdout);
+      g_string_append_len (priv->error_string, buf, bytes_read);
       break;
 
     case G_IO_STATUS_EOF:
@@ -235,9 +286,6 @@ git_annotated_source_on_child_stderr (GIOChannel *io_source,
     case G_IO_STATUS_AGAIN:
       break;
     }
-
-  if (!ret)
-    priv->child_stderr_source = 0;
 
   return ret;
 }
@@ -303,6 +351,8 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 		      source);
 
   priv->has_child = TRUE;
+
+  g_string_truncate (priv->error_string, 0);
 
   return TRUE;
 }

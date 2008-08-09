@@ -33,6 +33,8 @@ typedef struct _GitAnnotatedSourcePrivate GitAnnotatedSourcePrivate;
 struct _GitAnnotatedSourceClass
 {
   GObjectClass parent_class;
+
+  void (* completed) (GitAnnotatedSource *source, const GError *error);
 };
 
 struct _GitAnnotatedSource
