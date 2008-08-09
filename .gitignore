@@ -12,6 +12,6 @@
 /autom4te.cache
 /src/Makefile
 /src/Makefile.in
-/src/blame-browser
+/src/blame-browse
 .deps
 *.o

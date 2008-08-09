@@ -1,8 +1,8 @@
-bin_PROGRAMS = blame-browser
+bin_PROGRAMS = blame-browse
 
-blame_browser_SOURCES = \
+blame_browse_SOURCES = \
 	main.c
 
 INCLUDES = @DEPS_CFLAGS@
 
-blame_browser_LDFLAGS = @DEPS_LIBS@
+blame_browse_LDFLAGS = @DEPS_LIBS@
