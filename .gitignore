@@ -1,0 +1,17 @@
+/Makefile.in
+/aclocal.m4
+/config.h
+/config.h.in
+/config.log
+/config.status
+/configure
+/depcomp
+/install-sh
+/missing
+/stamp-h1
+/autom4te.cache
+/src/Makefile
+/src/Makefile.in
+/src/blame-browser
+.deps
+*.o
