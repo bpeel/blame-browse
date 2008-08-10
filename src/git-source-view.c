@@ -3,12 +3,16 @@
 #endif
 
 #include <gtk/gtkwidget.h>
+#include <gtk/gtktooltip.h>
 #include <string.h>
 #include <ctype.h>
+#include <errno.h>
+#include <stdlib.h>
 
 #include "git-source-view.h"
 #include "git-annotated-source.h"
 #include "git-marshal.h"
+#include "git-common.h"
 
 static void git_source_view_dispose (GObject *object);
 static void git_source_view_realize (GtkWidget *widget);
@@ -19,6 +23,11 @@ static void git_source_view_set_scroll_adjustments (GtkWidget *widget,
 						    GtkAdjustment *vadjustment);
 static void git_source_view_size_allocate (GtkWidget *widget,
 					   GtkAllocation *allocation);
+
+static gboolean git_source_view_query_tooltip (GtkWidget *widget,
+					       gint x, gint y,
+					       gboolean keyboard_tooltip,
+					       GtkTooltip *tooltip);
 
 G_DEFINE_TYPE (GitSourceView, git_source_view, GTK_TYPE_WIDGET);
 
@@ -67,6 +76,7 @@ git_source_view_class_init (GitSourceViewClass *klass)
   widget_class->realize = git_source_view_realize;
   widget_class->expose_event = git_source_view_expose_event;
   widget_class->size_allocate = git_source_view_size_allocate;
+  widget_class->query_tooltip = git_source_view_query_tooltip;
 
   klass->set_scroll_adjustments = git_source_view_set_scroll_adjustments;
 
@@ -91,6 +101,8 @@ static void
 git_source_view_init (GitSourceView *self)
 {
   self->priv = GIT_SOURCE_VIEW_GET_PRIVATE (self);
+
+  g_object_set (self, "has-tooltip", TRUE, NULL);
 }
 
 static void
@@ -499,6 +511,112 @@ git_source_view_size_allocate (GtkWidget *widget,
     ->size_allocate (widget, allocation);
 
   git_source_view_update_scroll_adjustments (GIT_SOURCE_VIEW (widget));
+}
+
+static gboolean
+git_source_view_query_tooltip (GtkWidget *widget,
+			       gint x, gint y,
+			       gboolean keyboard_tooltip,
+			       GtkTooltip *tooltip)
+{
+  GitSourceView *sview = (GitSourceView *) widget;
+  GitSourceViewPrivate *priv = sview->priv;
+  gint line_num, num_lines;
+  gboolean ret = TRUE;
+  GString *markup;
+  const gchar *part;
+  gchar *part_markup;
+  const GitAnnotatedSourceLine *line;
+  GitCommit *commit;
+
+  if (priv->line_height < 1 || priv->paint_source == NULL)
+    return FALSE;
+
+  num_lines = git_annotated_source_get_n_lines (priv->paint_source);
+
+  line_num = (y + priv->y_offset) / priv->line_height;
+
+  if (x < 0 || x >= priv->max_line_width
+      || line_num < 0 || line_num >= num_lines)
+    return FALSE;
+
+  line = git_annotated_source_get_line (priv->paint_source, line_num);
+  commit = line->commit;
+
+  markup = g_string_new ("");
+
+  if ((part = git_commit_get_prop (commit, "author")))
+    {
+      part_markup = g_markup_printf_escaped ("<b>%s</b>", part);
+      g_string_append (markup, part_markup);
+      g_free (part_markup);
+    }
+  if ((part = git_commit_get_prop (commit, "author-mail")))
+    {
+      if (markup->len > 0)
+	g_string_append_c (markup, ' ');
+      part_markup = g_markup_escape_text (part, -1);
+      g_string_append (markup, part_markup);
+      g_free (part_markup);
+    }
+  if ((part = git_commit_get_prop (commit, "author-time")))
+    {
+      GTimeVal time_;
+      char *tail;
+
+      errno = 0;
+      time_.tv_sec = strtol (part, &tail, 10);
+      time_.tv_usec = 0;
+
+      if (errno == 0 && *tail == '\0')
+	{
+	  gchar *display_time;
+
+	  if (markup->len > 0)
+	    g_string_append_c (markup, '\n');
+
+	  display_time = git_format_time_for_display (&time_);
+	  part_markup = g_markup_escape_text (display_time, -1);
+	  g_free (display_time);
+	  g_string_append (markup, part_markup);
+	  g_free (part_markup);
+	}
+    }
+  if ((part = git_commit_get_prop (commit, "summary")))
+    {
+      gchar *stripped_part;
+
+      if (markup->len > 0)
+	g_string_append_c (markup, '\n');
+
+      while (*part && isspace (*part))
+	part++;
+      stripped_part = g_strdup (part);
+      g_strchomp (stripped_part);
+
+      part_markup = g_markup_printf_escaped ("<i>%s</i>", stripped_part);
+      g_free (stripped_part);
+      g_string_append (markup, part_markup);
+      g_free (part_markup);
+    }
+
+  if (markup->len > 0)
+    {
+      GdkRectangle tip_area;
+      
+      tip_area.x = 0;
+      tip_area.y = line_num * priv->line_height - priv->y_offset;
+      tip_area.width = priv->max_hash_length;
+      tip_area.height = priv->line_height;
+      gtk_tooltip_set_markup (tooltip, markup->str);
+      gtk_tooltip_set_tip_area (tooltip, &tip_area);
+    }
+  else
+    ret = FALSE;
+
+  g_string_free (markup, TRUE);
+
+  return ret;
 }
 
 GtkWidget *

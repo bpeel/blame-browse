@@ -16,6 +16,7 @@ blame_browse_SOURCES = \
 	git-reader.h \
 	git-source-view.c \
 	git-source-view.h \
+	intl.h \
 	main.c \
 	$(BUILT_SOURCES)
 

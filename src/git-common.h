@@ -17,5 +17,6 @@ gboolean _git_boolean_continue_accumulator (GSignalInvocationHint *ihint,
 					    GValue *return_accu,
 					    const GValue *handler_return,
 					    gpointer data);
+gchar *git_format_time_for_display (GTimeVal *time_);
 
 #endif /* __GIT_COMMON_H__ */

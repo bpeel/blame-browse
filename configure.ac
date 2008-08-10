@@ -18,6 +18,8 @@ AC_HEADER_STDC
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
 
+AC_CHECK_FUNCS([localtime_r])
+
 AC_PATH_PROG([GLIB_MKENUMS], [glib-mkenums])
 AC_PATH_PROG([GLIB_GENMARSHAL], [glib-genmarshal])
 
