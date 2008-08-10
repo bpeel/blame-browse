@@ -213,8 +213,8 @@ git_reader_check_complete (GitReader *reader)
 	      gssize len;
 
 	      /* Remove spaces at the end of the error string */
-	      for (len = priv->error_string->len - 1;
-		   len > 0 && isspace (priv->error_string->str[len]);
+	      for (len = priv->error_string->len;
+		   len > 0 && isspace (priv->error_string->str[len - 1]);
 		   len--);
 	      g_string_truncate (priv->error_string, len);
 
