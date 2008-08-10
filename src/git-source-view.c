@@ -563,7 +563,7 @@ git_source_view_query_tooltip (GtkWidget *widget,
 
   line_num = (y + priv->y_offset) / priv->line_height;
 
-  if (x < 0 || x >= priv->max_line_width
+  if (x < 0 || x >= priv->max_hash_length
       || line_num < 0 || line_num >= num_lines)
     return FALSE;
 
