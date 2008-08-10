@@ -41,6 +41,8 @@ git-marshal.c: git-marshal.h Makefile
 	&& cp xgen-cmc git-marshal.c \
 	&& rm -f xgen-cmc
 
+CLEANFILES = $(STAMPFILES)
+
 DISTCLEANFILES = \
 	$(MARSHALFILES)
 
