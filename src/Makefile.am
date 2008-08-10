@@ -7,6 +7,8 @@ blame_browse_SOURCES = \
 	git-commit.h \
 	git-common.c \
 	git-common.h \
+	git-reader.h \
+	git-reader.c \
 	main.c
 
 INCLUDES = @DEPS_CFLAGS@
