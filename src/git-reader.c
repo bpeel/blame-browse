@@ -384,6 +384,7 @@ git_reader_on_child_stderr (GIOChannel *io_source,
 
 gboolean
 git_reader_start (GitReader *reader,
+		  const gchar *working_directory,
 		  GError **error,
 		  ...)
 {
@@ -418,7 +419,7 @@ git_reader_start (GitReader *reader,
 
   va_end (ap);
 
-  spawn_ret = g_spawn_async_with_pipes (NULL, args, NULL,
+  spawn_ret = g_spawn_async_with_pipes (working_directory, args, NULL,
 					G_SPAWN_SEARCH_PATH
 					| G_SPAWN_DO_NOT_REAP_CHILD,
 					NULL, NULL, &priv->child_pid,

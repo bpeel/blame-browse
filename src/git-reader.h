@@ -67,8 +67,9 @@ GType git_reader_get_type (void) G_GNUC_CONST;
 GitReader *git_reader_new (void);
 
 gboolean git_reader_start (GitReader *reader,
+			   const gchar *working_directory,
 			   GError **error,
-			   ...);
+			   ...) G_GNUC_NULL_TERMINATED;
 
 G_END_DECLS
 

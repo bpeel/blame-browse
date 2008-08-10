@@ -216,6 +216,8 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 			    GError **error)
 {
   GitAnnotatedSourcePrivate *priv;
+  gchar *dir_part, *base_part;
+  gboolean ret;
 
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
@@ -226,10 +228,18 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 
   git_annotated_source_clear_lines (source);
 
+  dir_part = g_path_get_dirname (filename);
+  base_part = g_path_get_basename (filename);
+
   /* Revision can be NULL in which case it will terminate the argument
      list early and git will include uncommitted changes */
-  return git_reader_start (priv->reader, error, "blame", "-p",
-			   filename, revision, NULL);
+  ret = git_reader_start (priv->reader, dir_part, error, "blame", "-p",
+			  base_part, revision, NULL);
+
+  g_free (dir_part);
+  g_free (base_part);
+
+  return ret;
 }
 
 static void

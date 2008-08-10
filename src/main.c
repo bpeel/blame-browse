@@ -29,8 +29,26 @@ int
 main (int argc, char **argv)
 {
   GtkWidget *win, *scrolled_win, *source_view;
+  const gchar *filename, *revision;
 
   gtk_init (&argc, &argv);
+
+  if (argc == 2)
+    {
+      revision = NULL;
+      filename = argv[1];
+    }
+  else if (argc == 3)
+    {
+      revision = argv[1];
+      filename = argv[2];
+    }
+  else
+    {
+      fprintf (stderr, "usage: %s [revision] <filename>\n",
+	       g_get_prgname ());
+      return 1;
+    }
 
   win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
   gtk_window_set_default_size (GTK_WINDOW (win), 560, 460);
@@ -43,7 +61,7 @@ main (int argc, char **argv)
 
   source_view = git_source_view_new ();
   git_source_view_set_file (GIT_SOURCE_VIEW (source_view),
-			    "git-annotated-source.c", NULL);
+			    filename, revision);
   gtk_widget_show (source_view);
   gtk_container_add (GTK_CONTAINER (scrolled_win), source_view);
   
