@@ -33,6 +33,7 @@ main (int argc, char **argv)
   gtk_init (&argc, &argv);
 
   win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+  gtk_window_set_default_size (GTK_WINDOW (win), 560, 460);
   g_signal_connect (win, "delete-event", G_CALLBACK (gtk_main_quit), NULL);
 
   scrolled_win = gtk_scrolled_window_new (NULL, NULL);
