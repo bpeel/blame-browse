@@ -1,6 +1,6 @@
 AC_PREREQ(2.53)
 
-AC_INIT([blame-browser], 0.1)
+AC_INIT([blame-browse], 0.1)
 
 AC_CONFIG_SRCDIR([src/main.c])
 AM_CONFIG_HEADER([config.h])
