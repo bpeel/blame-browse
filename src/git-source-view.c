@@ -270,7 +270,8 @@ git_source_view_realize (GtkWidget *widget)
   attribs.colormap = gtk_widget_get_colormap (widget);
   attribs.event_mask = gtk_widget_get_events (widget)
     | GDK_EXPOSURE_MASK | GDK_POINTER_MOTION_MASK
-    | GDK_LEAVE_NOTIFY_MASK | GDK_ENTER_NOTIFY_MASK;
+    | GDK_LEAVE_NOTIFY_MASK | GDK_ENTER_NOTIFY_MASK
+    | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK;
 
   widget->window = gdk_window_new (gtk_widget_get_parent_window (widget),
 				   &attribs,
