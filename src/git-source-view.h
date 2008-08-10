@@ -2,6 +2,7 @@
 #define __GIT_SOURCE_VIEW_H__
 
 #include <gtk/gtkwidget.h>
+#include <gtk/gtkadjustment.h>
 
 G_BEGIN_DECLS
 
@@ -33,6 +34,10 @@ typedef struct _GitSourceViewPrivate GitSourceViewPrivate;
 struct _GitSourceViewClass
 {
   GtkWidgetClass parent_class;
+
+  void (* set_scroll_adjustments) (GtkWidget *widget,
+				   GtkAdjustment *hadjustment,
+				   GtkAdjustment *vadjustment);
 };
 
 struct _GitSourceView
