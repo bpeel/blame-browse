@@ -4,10 +4,11 @@
 
 #include <glib-object.h>
 #include <glib.h>
-#include <stdio.h>
+#include <string.h>
 
 #include "git-annotated-source.h"
 #include "git-reader.h"
+#include "git-commit.h"
 #include "git-common.h"
 
 static void git_annotated_source_dispose (GObject *object);
@@ -33,6 +34,11 @@ struct _GitAnnotatedSourcePrivate
   GitReader *reader;
   guint completed_handler;
   guint line_handler;
+
+  GArray *lines;
+  GitAnnotatedSourceLine current_line;
+
+  GHashTable *commit_bag;
 };
 
 enum
@@ -83,6 +89,44 @@ git_annotated_source_init (GitAnnotatedSource *self)
     = g_signal_connect (priv->reader, "line",
 			G_CALLBACK (git_annotated_source_on_line),
 			self);
+
+  priv->lines = g_array_new (FALSE, FALSE, sizeof (GitAnnotatedSourceLine));
+  priv->current_line.commit = NULL;
+  priv->current_line.text = NULL;
+
+  priv->commit_bag = g_hash_table_new_full (g_str_hash, g_str_equal,
+					    g_free, g_object_unref);
+}
+
+static void
+git_annotated_source_clear_lines (GitAnnotatedSource *source)
+{
+  GitAnnotatedSourcePrivate *priv = source->priv;
+  int i;
+
+  for (i = 0; i < priv->lines->len; i++)
+    {
+      GitAnnotatedSourceLine *line
+	= &g_array_index (priv->lines, GitAnnotatedSourceLine, i);
+
+      g_object_unref (line->commit);
+      g_free (line->text);
+    }
+
+  g_array_set_size (priv->lines, 0);
+
+  if (priv->current_line.commit)
+    {
+      g_object_unref (priv->current_line.commit);
+      priv->current_line.commit = NULL;
+    }
+  if (priv->current_line.text)
+    {
+      g_free (priv->current_line.text);
+      priv->current_line.text = NULL;
+    }
+
+  g_hash_table_remove_all (priv->commit_bag);
 }
 
 static void
@@ -106,6 +150,11 @@ static void
 git_annotated_source_finalize (GObject *object)
 {
   GitAnnotatedSource *self = (GitAnnotatedSource *) object;
+  GitAnnotatedSourcePrivate *priv = self->priv;
+
+  git_annotated_source_clear_lines (self);
+  g_array_free (priv->lines, TRUE);
+  g_hash_table_destroy (priv->commit_bag);
 
   G_OBJECT_CLASS (git_annotated_source_parent_class)->finalize (object);
 }
@@ -116,6 +165,31 @@ git_annotated_source_new (void)
   GitAnnotatedSource *self = g_object_new (GIT_TYPE_ANNOTATED_SOURCE, NULL);
 
   return self;
+}
+
+const GitAnnotatedSourceLine *
+git_annotated_source_get_line (GitAnnotatedSource *source,
+			       gsize line_num)
+{
+  GitAnnotatedSourcePrivate *priv;
+
+  g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), NULL);
+  priv = source->priv;
+  g_return_val_if_fail (line_num >= 0 && line_num < priv->lines->len, NULL);
+
+  return &g_array_index (priv->lines, GitAnnotatedSourceLine, line_num);
+}
+
+gsize
+git_annotated_source_get_n_lines (GitAnnotatedSource *source)
+{
+  GitAnnotatedSourcePrivate *priv;
+
+  g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), 0);
+
+  priv = source->priv;
+
+  return priv->lines->len;
 }
 
 gboolean
@@ -132,8 +206,23 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 
   priv = source->priv;
 
+  git_annotated_source_clear_lines (source);
+
   return git_reader_start (priv->reader, error, "blame", "-p",
 			   filename, revision, NULL);
+}
+
+static void
+git_annotated_source_parse_error (GitAnnotatedSource *source)
+{
+  GError *error = NULL;
+
+  g_set_error (&error, GIT_ERROR, GIT_ERROR_PARSE_ERROR,
+	       "Invalid data from git-blame received");
+
+  g_signal_emit (source, client_signals[COMPLETED], 0, error);
+
+  g_error_free (error);
 }
 
 static void
@@ -141,33 +230,128 @@ git_annotated_source_on_reader_completed (GitReader *reader,
 					  const GError *error,
 					  GitAnnotatedSource *source)
 {
-  g_signal_emit (source, client_signals[COMPLETED], 0, error, NULL);
+  /* If we've got a commit for the current line then we must be
+     missing the actual code for the line so the output is invalid */
+  if (source->priv->current_line.commit)
+    git_annotated_source_parse_error (source);
+  else
+    g_signal_emit (source, client_signals[COMPLETED], 0, error);
 }
 
 static gboolean
 git_annotated_source_on_line (GitReader *reader,
 			      guint length, const gchar *str,
-			      GitAnnotatedSource *soure)
+			      GitAnnotatedSource *source)
 {
-  printf ("line: \"");
+  GitAnnotatedSourcePrivate *priv = source->priv;
+  int i;
+  const gchar *p = str;
+  gboolean ret = TRUE;
 
-  while (length > 0)
+  /* If we haven't got a commit yet then we are expecting the first
+     line to be the commit hash followed by two or three numbers for
+     the lines */
+  if (priv->current_line.commit == NULL)
     {
-      guchar ch = *str++;
+      int nums[3];
 
-      if (ch == '\n')
-	fputs ("\\n", stdout);
-      else if (ch == '\t')
-	fputs ("\\t", stdout);
-      else if (ch < 32 || ch >= 128)
-	printf ("\\x%x", ch);
+      if (length < GIT_COMMIT_HASH_LENGTH)
+	{
+	  git_annotated_source_parse_error (source);
+	  ret = FALSE;
+	}
       else
-	fputc (ch, stdout);
+	{
+	  for (i = 0; i < GIT_COMMIT_HASH_LENGTH; i++, p++)
+	    if ((*p < '0' || *p > '9') && (*p < 'a' || *p > 'f'))
+	      break;
 
-      length--;
+	  length -= GIT_COMMIT_HASH_LENGTH;
+
+	  if (i < GIT_COMMIT_HASH_LENGTH)
+	    {
+	      git_annotated_source_parse_error (source);
+	      ret = FALSE;
+	    }
+	  else
+	    {
+	      for (i = 0; i < 3; i++)
+		{
+		  nums[i] = 0;
+		  if (length < 1 || *p != ' ')
+		    {
+		      git_annotated_source_parse_error (source);
+		      ret = FALSE;
+		      break;
+		    }
+		  length--;
+		  p++;
+		  while (length > 0 && *p >= '0' && *p <= '9')
+		    {
+		      nums[i] = nums[i] * 10 + *p - '0';
+		      length--;
+		      p++;
+		    }
+		  /* The last number is optional */
+		  if (i == 1 && length == 1 && *p == '\n')
+		    break;
+		}
+
+	      if (ret)
+		{
+		  if (length != 1 || *p != '\n')
+		    {
+		      git_annotated_source_parse_error (source);
+		      ret = FALSE;
+		    }
+		  else
+		    {
+		      gchar *hash = g_strndup (str, GIT_COMMIT_HASH_LENGTH);
+		      GitCommit *commit;
+
+		      if ((commit = g_hash_table_lookup (priv->commit_bag,
+							 hash)))
+			g_free (hash);
+		      else
+			{
+			  commit = git_commit_new (hash);
+			  g_hash_table_insert (priv->commit_bag, hash, commit);
+			}
+		      priv->current_line.commit = g_object_ref (commit);
+		      priv->current_line.orig_line = nums[0];
+		      priv->current_line.final_line = nums[1];
+		    }
+		}
+	    }
+	}
+    }
+  /* If this is the code of the line then it begins with a tab */
+  else if (length >= 1 && *str == '\t')
+    {
+      priv->current_line.text = g_strndup (str + 1, length - 1);
+      g_array_append_val (priv->lines, priv->current_line);
+      priv->current_line.commit = NULL;
+      priv->current_line.text = NULL;
+    }
+  /* Otherwise it should be a key-value property pair */
+  else
+    {
+      const gchar *sep;
+      
+      if (length > 1 && str[length - 1] == '\n')
+	length--;
+
+      if ((sep = memchr (str, ' ', length)))
+	{
+	  gchar *key = g_strndup (str, sep - str);
+	  gchar *value = g_strndup (sep + 1, str + length - sep - 1);
+
+	  git_commit_set_prop (priv->current_line.commit, key, value);
+
+	  g_free (key);
+	  g_free (value);
+	}
     }
 
-  fputs ("\"\n", stdout);
-
-  return TRUE;
+  return ret;
 }

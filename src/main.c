@@ -13,7 +13,10 @@ on_completed (GitAnnotatedSource *source,
 	      gpointer user_data)
 {
   if (error)
-    fprintf (stderr, "ERROR: %s\n", error->message);
+    {
+      fprintf (stderr, "ERROR: %s\n", error->message);
+      *(int *) user_data = 1;
+    }
 
   gtk_main_quit ();
 }
@@ -29,7 +32,7 @@ main (int argc, char **argv)
 
   source = git_annotated_source_new ();
 
-  g_signal_connect (source, "completed", G_CALLBACK (on_completed), NULL);
+  g_signal_connect (source, "completed", G_CALLBACK (on_completed), &ret);
 
   if (!git_annotated_source_fetch (source, "main.c", "HEAD", &error))
     {
@@ -39,6 +42,25 @@ main (int argc, char **argv)
     }
 
   gtk_main ();
+  
+  if (ret == 0)
+    {
+      gsize i;
+
+      for (i = 0; i < git_annotated_source_get_n_lines (source); i++)
+	{
+	  const GitAnnotatedSourceLine *line
+	    = git_annotated_source_get_line (source, i);
+
+	  printf ("%s:%s:%s:%i:%i:%s",
+		  git_commit_get_hash (line->commit),
+		  git_commit_get_prop (line->commit, "author"),
+		  git_commit_get_prop (line->commit, "author-mail"),
+		  line->orig_line,
+		  line->final_line,
+		  line->text);
+	}
+    }
 
   g_object_unref (source);
 

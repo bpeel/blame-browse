@@ -7,7 +7,8 @@
 #define GIT_ERROR (git_error_quark ())
 
 typedef enum {
-  GIT_ERROR_EXIT_STATUS
+  GIT_ERROR_EXIT_STATUS,
+  GIT_ERROR_PARSE_ERROR
 } GitError;
 
 GQuark git_error_quark (void);

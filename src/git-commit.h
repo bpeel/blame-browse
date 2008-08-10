@@ -42,6 +42,8 @@ struct _GitCommit
   GitCommitPrivate *priv;
 };
 
+#define GIT_COMMIT_HASH_LENGTH 40
+
 GType git_commit_get_type (void) G_GNUC_CONST;
 
 GitCommit *git_commit_new (const gchar *hash);

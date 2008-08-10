@@ -2,6 +2,7 @@
 #define __GIT_ANNOTATED_SOURCE_H__
 
 #include <glib-object.h>
+#include "git-commit.h"
 
 G_BEGIN_DECLS
 
@@ -29,6 +30,7 @@ G_BEGIN_DECLS
 typedef struct _GitAnnotatedSource        GitAnnotatedSource;
 typedef struct _GitAnnotatedSourceClass   GitAnnotatedSourceClass;
 typedef struct _GitAnnotatedSourcePrivate GitAnnotatedSourcePrivate;
+typedef struct _GitAnnotatedSourceLine    GitAnnotatedSourceLine;
 
 struct _GitAnnotatedSourceClass
 {
@@ -44,6 +46,13 @@ struct _GitAnnotatedSource
   GitAnnotatedSourcePrivate *priv;
 };
 
+struct _GitAnnotatedSourceLine
+{
+  GitCommit *commit;
+  guint orig_line, final_line;
+  gchar *text;
+};
+
 GType git_annotated_source_get_type (void) G_GNUC_CONST;
 
 GitAnnotatedSource *git_annotated_source_new (void);
@@ -51,6 +60,11 @@ gboolean git_annotated_source_fetch (GitAnnotatedSource *source,
 				     const gchar *filename,
 				     const gchar *revision,
 				     GError **error);
+
+gsize git_annotated_source_get_n_lines (GitAnnotatedSource *source);
+
+const GitAnnotatedSourceLine *
+git_annotated_source_get_line (GitAnnotatedSource *source, gsize line_num);
 
 G_END_DECLS
 
