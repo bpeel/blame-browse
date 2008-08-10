@@ -14,5 +14,8 @@
 /src/Makefile
 /src/Makefile.in
 /src/blame-browse
+/src/git-marshal.c
+/src/git-marshal.h
+/src/stamp-git-marshal.h
 .deps
 *.o

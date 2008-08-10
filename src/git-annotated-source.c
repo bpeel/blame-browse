@@ -4,6 +4,7 @@
 
 #include <glib-object.h>
 #include <glib.h>
+#include <stdio.h>
 
 #include "git-annotated-source.h"
 #include "git-reader.h"
@@ -16,6 +17,10 @@ static void
 git_annotated_source_on_reader_completed (GitReader *reader,
 					  const GError *error,
 					  GitAnnotatedSource *soure);
+static gboolean
+git_annotated_source_on_line (GitReader *reader,
+			      guint length, const gchar *str,
+			      GitAnnotatedSource *soure);
 
 G_DEFINE_TYPE (GitAnnotatedSource, git_annotated_source, G_TYPE_OBJECT);
 
@@ -27,6 +32,7 @@ struct _GitAnnotatedSourcePrivate
 {
   GitReader *reader;
   guint completed_handler;
+  guint line_handler;
 };
 
 enum
@@ -72,6 +78,11 @@ git_annotated_source_init (GitAnnotatedSource *self)
     = g_signal_connect (priv->reader, "completed",
 			G_CALLBACK (git_annotated_source_on_reader_completed),
 			self);
+
+  priv->line_handler
+    = g_signal_connect (priv->reader, "line",
+			G_CALLBACK (git_annotated_source_on_line),
+			self);
 }
 
 static void
@@ -83,6 +94,7 @@ git_annotated_source_dispose (GObject *object)
   if (priv->reader)
     {
       g_signal_handler_disconnect (priv->reader, priv->completed_handler);
+      g_signal_handler_disconnect (priv->reader, priv->line_handler);
       g_object_unref (priv->reader);
       priv->reader = NULL;
     }
@@ -130,4 +142,32 @@ git_annotated_source_on_reader_completed (GitReader *reader,
 					  GitAnnotatedSource *source)
 {
   g_signal_emit (source, client_signals[COMPLETED], 0, error, NULL);
+}
+
+static gboolean
+git_annotated_source_on_line (GitReader *reader,
+			      guint length, const gchar *str,
+			      GitAnnotatedSource *soure)
+{
+  printf ("line: \"");
+
+  while (length > 0)
+    {
+      guchar ch = *str++;
+
+      if (ch == '\n')
+	fputs ("\\n", stdout);
+      else if (ch == '\t')
+	fputs ("\\t", stdout);
+      else if (ch < 32 || ch >= 128)
+	printf ("\\x%x", ch);
+      else
+	fputc (ch, stdout);
+
+      length--;
+    }
+
+  fputs ("\"\n", stdout);
+
+  return TRUE;
 }

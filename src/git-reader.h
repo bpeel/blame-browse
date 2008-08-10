@@ -35,6 +35,7 @@ struct _GitReaderClass
   GObjectClass parent_class;
 
   void (* completed) (GitReader *reader, const GError *error);
+  gboolean (* line) (GitReader *reader, guint length, const gchar *line);
 };
 
 struct _GitReader
