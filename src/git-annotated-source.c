@@ -220,11 +220,14 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
   g_return_val_if_fail (source->priv->reader != NULL, FALSE);
+  g_return_val_if_fail (filename != NULL, FALSE);
 
   priv = source->priv;
 
   git_annotated_source_clear_lines (source);
 
+  /* Revision can be NULL in which case it will terminate the argument
+     list early and git will include uncommitted changes */
   return git_reader_start (priv->reader, error, "blame", "-p",
 			   filename, revision, NULL);
 }

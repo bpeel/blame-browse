@@ -199,18 +199,28 @@ git_source_view_set_text_for_line (PangoLayout *layout,
     len--;
 
   pango_layout_set_text (layout, line->text, len);
+  pango_layout_set_attributes (layout, NULL);
 }
 
 static void
 git_source_view_set_text_for_commit (PangoLayout *layout, GitCommit *commit)
 {
-  const gchar *hash = git_commit_get_hash (commit);
+  const gchar *hash = git_commit_get_hash (commit), *p;
   int len = strlen (hash);
 
-  if (len > GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH)
-    len = GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH;
+  /* If the hash is all zeroes then it represents lines in the working
+     copy that have not been committed */
+  for (p = hash; *p == '0'; p++);
+  if (p - hash == len && len == GIT_COMMIT_HASH_LENGTH)
+    pango_layout_set_markup (layout, "<i>WIP</i>", -1);
+  else
+    {
+      if (len > GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH)
+	len = GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH;
 
-  pango_layout_set_text (layout, hash, len);
+      pango_layout_set_text (layout, hash, len);
+      pango_layout_set_attributes (layout, NULL);
+    }
 }
 
 static void
@@ -688,6 +698,7 @@ git_source_view_set_file (GitSourceView *sview,
   GError *error = NULL;
 
   g_return_if_fail (GIT_IS_SOURCE_VIEW (sview));
+  g_return_if_fail (filename != NULL);
 
   priv = sview->priv;
 

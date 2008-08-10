@@ -43,7 +43,7 @@ main (int argc, char **argv)
 
   source_view = git_source_view_new ();
   git_source_view_set_file (GIT_SOURCE_VIEW (source_view),
-			    "git-annotated-source.c", "HEAD");
+			    "git-annotated-source.c", NULL);
   gtk_widget_show (source_view);
   gtk_container_add (GTK_CONTAINER (scrolled_win), source_view);
   
