@@ -17,11 +17,11 @@ static void git_annotated_source_finalize (GObject *object);
 static void
 git_annotated_source_on_reader_completed (GitReader *reader,
 					  const GError *error,
-					  GitAnnotatedSource *soure);
+					  GitAnnotatedSource *source);
 static gboolean
 git_annotated_source_on_line (GitReader *reader,
 			      guint length, const gchar *str,
-			      GitAnnotatedSource *soure);
+			      GitAnnotatedSource *source);
 
 G_DEFINE_TYPE (GitAnnotatedSource, git_annotated_source, G_TYPE_OBJECT);
 
