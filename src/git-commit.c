@@ -3,6 +3,7 @@
 #endif
 
 #include <glib-object.h>
+#include <string.h>
 
 #include "git-commit.h"
 
@@ -145,4 +146,40 @@ git_commit_get_prop (GitCommit *commit, const gchar *prop_name)
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
 
   return g_hash_table_lookup (commit->priv->props, prop_name);
+}
+
+void
+git_commit_get_color (GitCommit *commit, GdkColor *color)
+{
+  GitCommitPrivate *priv;
+  int i;
+
+  g_return_if_fail (GIT_IS_COMMIT (commit));
+
+  priv = commit->priv;
+
+  memset (color, 0, sizeof (GdkColor));
+
+  /* Use the first 6 bytes of the commit hash as a colour */
+  for (i = 0; i < 12; i++)
+    {
+      int nibble;
+
+      if ((priv->hash[i] < 'a' || priv->hash[i] > 'f')
+	  && (priv->hash[i] < '0' || priv->hash[i] > '9'))
+	{
+	  g_warning ("Invalid commit hash");
+	  return;
+	}
+
+      nibble = priv->hash[i] >= 'a'
+	? priv->hash[i] - 'a' + 10 : priv->hash[i] - '0';
+
+      if (i < 4)
+	color->red = (color->red << 4) | nibble;
+      else if (i < 8)
+	color->green = (color->green << 4) | nibble;
+      else
+	color->blue = (color->blue << 4) | nibble;
+    }
 }

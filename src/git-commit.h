@@ -2,6 +2,7 @@
 #define __GIT_COMMIT_H__
 
 #include <glib-object.h>
+#include <gdk/gdkcolor.h>
 
 G_BEGIN_DECLS
 
@@ -53,6 +54,8 @@ const gchar *git_commit_get_hash (GitCommit *commit);
 void git_commit_set_prop (GitCommit *commit, const gchar *prop_name,
 			  const gchar *value);
 const gchar *git_commit_get_prop (GitCommit *commit, const gchar *prop_name);
+
+void git_commit_get_color (GitCommit *commit, GdkColor *color);
 
 G_END_DECLS
 

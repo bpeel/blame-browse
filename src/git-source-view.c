@@ -26,12 +26,17 @@ G_DEFINE_TYPE (GitSourceView, git_source_view, GTK_TYPE_WIDGET);
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_SOURCE_VIEW, \
 				GitSourceViewPrivate))
 
+/* Number of digits of the commit hash to show */
+#define GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH 6
+
+#define GIT_SOURCE_VIEW_GAP 3
+
 struct _GitSourceViewPrivate
 {
   GitAnnotatedSource *paint_source, *load_source;
   guint loading_completed_handler;
 
-  guint line_height, max_line_width;
+  guint line_height, max_line_width, max_hash_length;
 
   GtkAdjustment *hadjustment, *vadjustment;
   guint hadjustment_value_changed_handler;
@@ -168,6 +173,18 @@ git_source_view_set_text_for_line (PangoLayout *layout,
 }
 
 static void
+git_source_view_set_text_for_commit (PangoLayout *layout, GitCommit *commit)
+{
+  const gchar *hash = git_commit_get_hash (commit);
+  int len = strlen (hash);
+
+  if (len > GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH)
+    len = GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH;
+
+  pango_layout_set_text (layout, hash, len);
+}
+
+static void
 git_source_view_update_scroll_adjustments (GitSourceView *sview)
 {
   GitSourceViewPrivate *priv = sview->priv;
@@ -183,7 +200,8 @@ git_source_view_update_scroll_adjustments (GitSourceView *sview)
       priv->hadjustment->upper = priv->max_line_width;
       priv->hadjustment->step_increment = 10.0;
       priv->hadjustment->page_increment = widget->allocation.width;
-      priv->hadjustment->page_size = widget->allocation.width;
+      priv->hadjustment->page_size = widget->allocation.width
+	- priv->max_hash_length - GIT_SOURCE_VIEW_GAP;
 
       if (priv->hadjustment->value + priv->hadjustment->page_size
 	  > priv->hadjustment->upper)
@@ -225,7 +243,7 @@ git_source_view_calculate_line_height (GitSourceView *sview)
 							    NULL);
       int line_num;
       PangoRectangle logical_rect;
-      guint line_height = 1, max_line_width = 1;
+      guint line_height = 1, max_line_width = 1, max_hash_length = 1;
 
       for (line_num = 0;
 	   line_num < git_annotated_source_get_n_lines (priv->paint_source);
@@ -241,10 +259,19 @@ git_source_view_calculate_line_height (GitSourceView *sview)
 	    line_height = logical_rect.height;
 	  if (logical_rect.width > max_line_width)
 	    max_line_width = logical_rect.width;
+
+	  git_source_view_set_text_for_commit (layout, line->commit);
+	  pango_layout_get_pixel_extents (layout, NULL, &logical_rect);
+	  
+	  if (logical_rect.height > line_height)
+	    line_height = logical_rect.height;
+	  if (logical_rect.width > max_hash_length)
+	    max_hash_length = logical_rect.width;
 	}
 
       priv->line_height = line_height;
       priv->max_line_width = max_line_width;
+      priv->max_hash_length = max_hash_length + GIT_SOURCE_VIEW_GAP * 2;
 
       g_object_unref (layout);
 
@@ -296,10 +323,12 @@ git_source_view_expose_event (GtkWidget *widget,
   gsize line_start, line_end, line_num, n_lines;
   gint y;
   PangoLayout *layout;
+  cairo_t *cr;
 
   if (priv->paint_source && priv->line_height)
     {
       layout = gtk_widget_create_pango_layout (widget, NULL);
+      cr = gdk_cairo_create (widget->window);
 
       n_lines = git_annotated_source_get_n_lines (priv->paint_source);
       line_start = (event->area.y + priv->y_offset) / priv->line_height;
@@ -317,11 +346,33 @@ git_source_view_expose_event (GtkWidget *widget,
 	  GdkRectangle clip_rect;
 	  const GitAnnotatedSourceLine *line
 	    = git_annotated_source_get_line (priv->paint_source, line_num);
+	  GdkColor color;
 	  y = line_num * priv->line_height - priv->y_offset;
+
+	  git_source_view_set_text_for_commit (layout, line->commit);
+	  git_commit_get_color (line->commit, &color);
+
+	  cairo_set_source_rgb (cr, color.red / 65535.0, color.green / 65535.0,
+				color.blue / 65535.0);
+	  cairo_rectangle (cr, 0, y, priv->max_hash_length, priv->line_height);
+	  cairo_fill_preserve (cr);
+
+	  /* Invert the color so that the text is guaranteed to be a
+	     different (albeit clashing) colour */
+	  color.red = ~color.red;
+	  color.green = ~color.green;
+	  color.blue = ~color.blue;
+	  cairo_set_source_rgb (cr, color.red / 65535.0, color.green / 65535.0,
+				color.blue / 65535.0);
+	  cairo_save (cr);
+	  cairo_clip (cr);
+	  cairo_move_to (cr, 0, y);
+	  pango_cairo_show_layout (cr, layout);
+	  cairo_restore (cr);
 
 	  git_source_view_set_text_for_line (layout, line);
 
-	  clip_rect.x = 0;
+	  clip_rect.x = priv->max_hash_length + GIT_SOURCE_VIEW_GAP;
 	  clip_rect.width = widget->allocation.width;
 	  clip_rect.y = y;
 	  clip_rect.height = priv->line_height;
@@ -333,10 +384,13 @@ git_source_view_expose_event (GtkWidget *widget,
 			    &clip_rect,
 			    widget,
 			    NULL,
-			    -priv->x_offset, y,
+			    -priv->x_offset + priv->max_hash_length
+			    + GIT_SOURCE_VIEW_GAP,
+			    y,
 			    layout);
 	}
 
+      cairo_destroy (cr);
       g_object_unref (layout);
     }
 
@@ -376,8 +430,16 @@ git_source_view_on_adj_value_changed (GtkAdjustment *adj, GitSourceView *sview)
       priv->y_offset = new_offset;
     }
 
-  if (GTK_WIDGET_REALIZED (GTK_WIDGET (sview)) && (dx || dy))
-    gdk_window_scroll (GTK_WIDGET (sview)->window, dx, dy);
+  if (GTK_WIDGET_REALIZED (GTK_WIDGET (sview)))
+    {
+      /* If dx has changed then we have to redraw the whole window
+	 because the commit hashes on the left side shouldn't
+	 scroll */
+      if (dx)
+	gdk_window_invalidate_rect (GTK_WIDGET (sview)->window, NULL, FALSE);
+      else if (dy)
+	gdk_window_scroll (GTK_WIDGET (sview)->window, dx, dy);
+    }
 }
 
 static void
