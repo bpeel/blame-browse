@@ -3,6 +3,8 @@ bin_PROGRAMS = blame-browse
 blame_browse_SOURCES = \
 	git-annotated-source.c \
 	git-annotated-source.h \
+	git-commit.c \
+	git-commit.h \
 	git-common.c \
 	git-common.h \
 	main.c
