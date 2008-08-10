@@ -12,8 +12,10 @@ blame_browse_SOURCES = \
 	git-commit.h \
 	git-common.c \
 	git-common.h \
-	git-reader.h \
 	git-reader.c \
+	git-reader.h \
+	git-source-view.c \
+	git-source-view.h \
 	main.c \
 	$(BUILT_SOURCES)
 

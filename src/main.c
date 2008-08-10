@@ -2,67 +2,29 @@
 #include "config.h"
 #endif
 
-#include <stdio.h>
 #include <gtk/gtkmain.h>
+#include <gtk/gtkwindow.h>
 
-#include "git-annotated-source.h"
-
-static void
-on_completed (GitAnnotatedSource *source,
-	      const GError *error,
-	      gpointer user_data)
-{
-  if (error)
-    {
-      fprintf (stderr, "ERROR: %s\n", error->message);
-      *(int *) user_data = 1;
-    }
-
-  gtk_main_quit ();
-}
+#include "git-source-view.h"
 
 int
 main (int argc, char **argv)
 {
-  GitAnnotatedSource *source;
-  int ret = 0;
-  GError *error = NULL;
+  GtkWidget *win, *source_view;
 
   gtk_init (&argc, &argv);
 
-  source = git_annotated_source_new ();
+  win = gtk_window_new (GTK_WINDOW_TOPLEVEL);
+  g_signal_connect (win, "delete-event", G_CALLBACK (gtk_main_quit), NULL);
 
-  g_signal_connect (source, "completed", G_CALLBACK (on_completed), &ret);
+  source_view = git_source_view_new ();
+  git_source_view_set_file (GIT_SOURCE_VIEW (source_view), "main.c", "HEAD");
+  gtk_widget_show (source_view);
+  gtk_container_add (GTK_CONTAINER (win), source_view);
 
-  if (!git_annotated_source_fetch (source, "main.c", "HEAD", &error))
-    {
-      fprintf (stderr, "ERROR: %s\n", error->message);
-      g_error_free (error);
-      ret = 1;
-    }
+  gtk_widget_show (win);
 
   gtk_main ();
   
-  if (ret == 0)
-    {
-      gsize i;
-
-      for (i = 0; i < git_annotated_source_get_n_lines (source); i++)
-	{
-	  const GitAnnotatedSourceLine *line
-	    = git_annotated_source_get_line (source, i);
-
-	  printf ("%s:%s:%s:%i:%i:%s",
-		  git_commit_get_hash (line->commit),
-		  git_commit_get_prop (line->commit, "author"),
-		  git_commit_get_prop (line->commit, "author-mail"),
-		  line->orig_line,
-		  line->final_line,
-		  line->text);
-	}
-    }
-
-  g_object_unref (source);
-
-  return ret;
+  return 0;
 }
