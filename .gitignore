@@ -16,6 +16,8 @@
 /src/blame-browse
 /src/git-marshal.c
 /src/git-marshal.h
-/src/stamp-git-marshal.h
+/src/stamp-*.h
+/src/git-enum-types.c
+/src/git-enum-types.h
 .deps
 *.o

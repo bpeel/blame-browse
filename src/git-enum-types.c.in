@@ -1,0 +1,51 @@
+/*** BEGIN file-header ***/
+/* This file is part of blame-browse.
+ * Copyright (C) 2008  Neil Roberts  <bpeeluk@yahoo.co.uk>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+#include "git-enum-types.h"
+/*** END file-header ***/
+
+/*** BEGIN file-production ***/
+/* enumerations from "@filename@" */
+#include "@filename@"
+/*** END file-production ***/
+
+/*** BEGIN value-header ***/
+GType
+@enum_name@_get_type(void)
+{
+  static GType etype = 0;
+  if (G_UNLIKELY (!etype))
+    {
+      static const G@Type@Value values[] =
+	{
+/*** END value-header ***/
+
+/*** BEGIN value-production ***/
+	  { @VALUENAME@, "@VALUENAME@", "@valuenick@" },
+/*** END value-production ***/
+
+/*** BEGIN value-tail ***/
+	  { 0, NULL, NULL }
+	};
+      etype = g_@type@_register_static (g_intern_static_string ("@EnumName@"),
+					values);
+    }
+  return etype;
+}
+
+/*** END value-tail ***/
