@@ -20,6 +20,7 @@
 
 #include <gtk/gtkwidget.h>
 #include <gtk/gtkadjustment.h>
+#include "git-commit.h"
 
 G_BEGIN_DECLS
 
@@ -55,6 +56,8 @@ struct _GitSourceViewClass
   void (* set_scroll_adjustments) (GtkWidget *widget,
 				   GtkAdjustment *hadjustment,
 				   GtkAdjustment *vadjustment);
+  void (* commit_selected) (GitSourceView *source_view,
+			    GitCommit *commit);
 };
 
 struct _GitSourceView

@@ -41,6 +41,10 @@ static void git_source_view_set_scroll_adjustments (GtkWidget *widget,
 						    GtkAdjustment *vadjustment);
 static void git_source_view_size_allocate (GtkWidget *widget,
 					   GtkAllocation *allocation);
+static gboolean git_source_view_motion_notify_event (GtkWidget *widget,
+						     GdkEventMotion *event);
+static gboolean git_source_view_button_release_event (GtkWidget *widget,
+						      GdkEventButton *event);
 static void git_source_view_get_property (GObject *object, guint property_id,
 					  GValue *value, GParamSpec *pspec);
 
@@ -72,11 +76,15 @@ struct _GitSourceViewPrivate
   GError *state_error;
   
   gint x_offset, y_offset;
+
+  GdkCursor *hand_cursor;
+  gboolean hand_cursor_set;
 };
 
 enum
   {
     SET_SCROLL_ADJUSTMENTS,
+    COMMIT_SELECTED,
 
     LAST_SIGNAL
   };
@@ -109,6 +117,8 @@ git_source_view_class_init (GitSourceViewClass *klass)
   widget_class->expose_event = git_source_view_expose_event;
   widget_class->size_allocate = git_source_view_size_allocate;
   widget_class->query_tooltip = git_source_view_query_tooltip;
+  widget_class->motion_notify_event = git_source_view_motion_notify_event;
+  widget_class->button_release_event = git_source_view_button_release_event;
 
   klass->set_scroll_adjustments = git_source_view_set_scroll_adjustments;
 
@@ -134,6 +144,16 @@ git_source_view_class_init (GitSourceViewClass *klass)
 		    GTK_TYPE_ADJUSTMENT);
   widget_class->set_scroll_adjustments_signal
     = client_signals[SET_SCROLL_ADJUSTMENTS];
+
+  client_signals[COMMIT_SELECTED]
+    = g_signal_new ("commit-selected",
+		    G_OBJECT_CLASS_TYPE (gobject_class),
+		    G_SIGNAL_RUN_LAST,
+		    G_STRUCT_OFFSET (GitSourceViewClass, commit_selected),
+		    NULL, NULL,
+		    _git_marshal_VOID__OBJECT,
+		    G_TYPE_NONE, 1,
+		    GIT_TYPE_COMMIT);
 
   g_type_class_add_private (klass, sizeof (GitSourceViewPrivate));
 }
@@ -218,6 +238,12 @@ git_source_view_dispose (GObject *object)
     {
       g_error_free (priv->state_error);
       priv->state_error = NULL;
+    }
+
+  if (priv->hand_cursor)
+    {
+      gdk_cursor_unref (priv->hand_cursor);
+      priv->hand_cursor = NULL;
     }
 
   G_OBJECT_CLASS (git_source_view_parent_class)->dispose (object);
@@ -798,4 +824,75 @@ git_source_view_get_state_error (GitSourceView *sview)
   g_return_val_if_fail (GIT_IS_SOURCE_VIEW (sview), 0);
 
   return sview->priv->state_error;
+}
+
+static gboolean
+git_source_view_motion_notify_event (GtkWidget *widget,
+				     GdkEventMotion *event)
+{
+  GitSourceView *sview = (GitSourceView *) widget;
+  GitSourceViewPrivate *priv = sview->priv;
+  gboolean show_cursor = FALSE;
+
+  /* Show the hand cursor when the pointer is over a commit hash */
+  if (priv->paint_source)
+    {
+      int n_lines = git_annotated_source_get_n_lines (priv->paint_source);
+
+      if (event->y < priv->y_offset + priv->line_height * n_lines
+	  && event->x < priv->max_hash_length)
+	show_cursor = TRUE;
+    }
+
+  if (show_cursor)
+    {
+      if (!priv->hand_cursor_set)
+	{
+	  /* Create the hand cursor if we haven't already got
+	     one. This will be unref'd in the dispose handler */
+	  if (priv->hand_cursor == NULL)
+	    priv->hand_cursor
+	      = gdk_cursor_new_for_display (gtk_widget_get_display (widget),
+					    GDK_HAND2);
+	  gdk_window_set_cursor (widget->window, priv->hand_cursor);
+
+	  priv->hand_cursor_set = TRUE;
+	}
+    }
+  else
+    {
+      if (priv->hand_cursor_set)
+	{
+	  gdk_window_set_cursor (widget->window, NULL);
+	  priv->hand_cursor_set = FALSE;
+	}
+    }
+
+  return FALSE;
+}
+
+static gboolean
+git_source_view_button_release_event (GtkWidget *widget,
+				      GdkEventButton *event)
+{
+  GitSourceView *sview = (GitSourceView *) widget;
+  GitSourceViewPrivate *priv = sview->priv;
+
+  if (priv->paint_source && priv->line_height > 0)
+    {
+      gint n_lines = git_annotated_source_get_n_lines (priv->paint_source);
+      gint line_num = (event->y + priv->y_offset) / priv->line_height;
+
+      if (line_num >= 0 && line_num < n_lines
+	  && event->x < priv->max_hash_length)
+	{
+	  const GitAnnotatedSourceLine *line
+	    = git_annotated_source_get_line (priv->paint_source, line_num);
+
+	  g_signal_emit (sview, client_signals[COMMIT_SELECTED],
+			 0, line->commit);
+	}
+    }
+
+  return FALSE;
 }
