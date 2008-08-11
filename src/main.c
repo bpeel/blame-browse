@@ -23,12 +23,15 @@
 #include <gtk/gtkwindow.h>
 
 #include "git-main-window.h"
+#include "intl.h"
 
 int
 main (int argc, char **argv)
 {
   GtkWidget *main_win;
   const gchar *filename, *revision;
+
+  g_set_application_name (_("Blame Browse"));
 
   gtk_init (&argc, &argv);
 
