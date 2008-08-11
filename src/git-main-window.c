@@ -27,11 +27,15 @@
 
 #include "git-main-window.h"
 #include "git-source-view.h"
+#include "git-commit-dialog.h"
 #include "intl.h"
 
 static void git_main_window_dispose (GObject *object);
 
 static void git_main_window_update_source_state (GitMainWindow *main_window);
+static void git_main_window_on_commit_selected (GitSourceView *sview,
+						GitCommit *commit,
+						GitMainWindow *main_window);
 
 G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
@@ -41,11 +45,12 @@ G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
 struct _GitMainWindowPrivate
 {
-  GtkWidget *statusbar, *source_view;
+  GtkWidget *statusbar, *source_view, *commit_dialog;
 
   guint source_state_context;
   guint source_state_id;
   guint source_state_handler;
+  guint commit_selected_handler;
 };
 
 static void
@@ -77,6 +82,9 @@ git_main_window_init (GitMainWindow *self)
   priv->source_state_handler = g_signal_connect_swapped
     (priv->source_view, "notify::state",
      G_CALLBACK (git_main_window_update_source_state), self);
+  priv->commit_selected_handler = g_signal_connect
+    (priv->source_view, "commit-selected",
+     G_CALLBACK (git_main_window_on_commit_selected), self);
   gtk_widget_show (priv->source_view);
   gtk_container_add (GTK_CONTAINER (scrolled_win), priv->source_view);
   
@@ -112,8 +120,16 @@ git_main_window_dispose (GObject *object)
     {
       g_signal_handler_disconnect (priv->source_view,
 				   priv->source_state_handler);
+      g_signal_handler_disconnect (priv->source_view,
+				   priv->commit_selected_handler);
       g_object_unref (priv->source_view);
       priv->source_view = NULL;
+    }
+
+  if (priv->commit_dialog)
+    {
+      g_object_unref (priv->commit_dialog);
+      priv->commit_dialog = NULL;
     }
 
   G_OBJECT_CLASS (git_main_window_parent_class)->dispose (object);
@@ -193,4 +209,25 @@ git_main_window_update_source_state (GitMainWindow *main_window)
 	  break;
 	}
     }
+}
+
+static void
+git_main_window_on_commit_selected (GitSourceView *sview,
+				    GitCommit *commit,
+				    GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (priv->commit_dialog == NULL)
+    {
+      priv->commit_dialog = g_object_ref_sink (git_commit_dialog_new ());
+     
+      /* Keep the window alive when it is closed */
+      g_signal_connect (priv->commit_dialog, "delete_event",
+			G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+    }
+
+  g_object_set (priv->commit_dialog, "commit", commit, NULL);
+  
+  gtk_window_present (GTK_WINDOW (priv->commit_dialog));
 }
