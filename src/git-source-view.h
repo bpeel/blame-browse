@@ -64,6 +64,12 @@ struct _GitSourceView
   GitSourceViewPrivate *priv;
 };
 
+typedef enum {
+  GIT_SOURCE_VIEW_READY,
+  GIT_SOURCE_VIEW_LOADING,
+  GIT_SOURCE_VIEW_ERROR
+} GitSourceViewState;
+
 GType git_source_view_get_type (void) G_GNUC_CONST;
 
 GtkWidget *git_source_view_new (void);
@@ -71,6 +77,9 @@ GtkWidget *git_source_view_new (void);
 void git_source_view_set_file (GitSourceView *sview,
 			       const gchar *filename,
 			       const gchar *revision);
+
+GitSourceViewState git_source_view_get_state (GitSourceView *sview);
+const GError *git_source_view_get_state_error (GitSourceView *sview);
 
 G_END_DECLS
 

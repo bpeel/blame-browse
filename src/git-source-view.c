@@ -30,6 +30,7 @@
 #include "git-annotated-source.h"
 #include "git-marshal.h"
 #include "git-common.h"
+#include "git-enum-types.h"
 
 static void git_source_view_dispose (GObject *object);
 static void git_source_view_realize (GtkWidget *widget);
@@ -40,6 +41,8 @@ static void git_source_view_set_scroll_adjustments (GtkWidget *widget,
 						    GtkAdjustment *vadjustment);
 static void git_source_view_size_allocate (GtkWidget *widget,
 					   GtkAllocation *allocation);
+static void git_source_view_get_property (GObject *object, guint property_id,
+					  GValue *value, GParamSpec *pspec);
 
 static gboolean git_source_view_query_tooltip (GtkWidget *widget,
 					       gint x, gint y,
@@ -51,11 +54,6 @@ G_DEFINE_TYPE (GitSourceView, git_source_view, GTK_TYPE_WIDGET);
 #define GIT_SOURCE_VIEW_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_SOURCE_VIEW, \
 				GitSourceViewPrivate))
-
-/* Number of digits of the commit hash to show */
-#define GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH 6
-
-#define GIT_SOURCE_VIEW_GAP 3
 
 struct _GitSourceViewPrivate
 {
@@ -69,6 +67,9 @@ struct _GitSourceViewPrivate
   guint vadjustment_value_changed_handler;
   guint hadjustment_changed_handler;
   guint vadjustment_changed_handler;
+
+  GitSourceViewState state;
+  GError *state_error;
   
   gint x_offset, y_offset;
 };
@@ -80,15 +81,29 @@ enum
     LAST_SIGNAL
   };
 
+enum
+  {
+    PROP_0,
+
+    PROP_STATE
+  };
+
 static guint client_signals[LAST_SIGNAL];
+
+/* Number of digits of the commit hash to show */
+#define GIT_SOURCE_VIEW_COMMIT_HASH_LENGTH 6
+
+#define GIT_SOURCE_VIEW_GAP 3
 
 static void
 git_source_view_class_init (GitSourceViewClass *klass)
 {
   GObjectClass *gobject_class = (GObjectClass *) klass;
   GtkWidgetClass *widget_class = (GtkWidgetClass *) klass;
+  GParamSpec *pspec;
 
   gobject_class->dispose = git_source_view_dispose;
+  gobject_class->get_property = git_source_view_get_property;
 
   widget_class->realize = git_source_view_realize;
   widget_class->expose_event = git_source_view_expose_event;
@@ -96,6 +111,15 @@ git_source_view_class_init (GitSourceViewClass *klass)
   widget_class->query_tooltip = git_source_view_query_tooltip;
 
   klass->set_scroll_adjustments = git_source_view_set_scroll_adjustments;
+
+  pspec = g_param_spec_enum ("state",
+			     "State",
+			     "The state of loading the annotated source. "
+			     "Either ready, loading or error.",
+			     GIT_TYPE_SOURCE_VIEW_STATE,
+			     GIT_SOURCE_VIEW_READY,
+			     G_PARAM_READABLE);
+  g_object_class_install_property (gobject_class, PROP_STATE, pspec);
 
   client_signals[SET_SCROLL_ADJUSTMENTS]
     = g_signal_new ("set_scroll_adjustments",
@@ -117,9 +141,14 @@ git_source_view_class_init (GitSourceViewClass *klass)
 static void
 git_source_view_init (GitSourceView *self)
 {
-  self->priv = GIT_SOURCE_VIEW_GET_PRIVATE (self);
+  GitSourceViewPrivate *priv;
+
+  priv = self->priv = GIT_SOURCE_VIEW_GET_PRIVATE (self);
 
   g_object_set (self, "has-tooltip", TRUE, NULL);
+
+  priv->state = GIT_SOURCE_VIEW_READY;
+  priv->state_error = NULL;
 }
 
 static void
@@ -184,6 +213,12 @@ git_source_view_dispose (GObject *object)
   git_source_view_unref_vadjustment (self);
 
   git_source_view_unref_loading_source (self);
+
+  if (priv->state_error)
+    {
+      g_error_free (priv->state_error);
+      priv->state_error = NULL;
+    }
 
   G_OBJECT_CLASS (git_source_view_parent_class)->dispose (object);
 }
@@ -646,6 +681,21 @@ git_source_view_query_tooltip (GtkWidget *widget,
   return ret;
 }
 
+static void
+git_source_view_get_property (GObject *object, guint property_id,
+			      GValue *value, GParamSpec *pspec)
+{
+  GitSourceView *sview = (GitSourceView *) object;
+  GitSourceViewPrivate *priv = sview->priv;
+
+  switch (property_id)
+    {
+    case PROP_STATE:
+      g_value_set_enum (value, priv->state);
+      break;
+    }
+}
+
 GtkWidget *
 git_source_view_new (void)
 {
@@ -655,10 +705,19 @@ git_source_view_new (void)
 }
 
 static void
-git_source_view_show_error (GitSourceView *sview, const GError *error)
+git_source_view_set_state (GitSourceView *sview,
+			   GitSourceViewState state,
+			   const GError *error)
 {
-  /* STUB: should show a dialog box */
-  g_warning ("error: %s\n", error->message);
+  GitSourceViewPrivate *priv = sview->priv;
+
+  priv->state = state;
+  if (priv->state_error)
+    g_error_free (priv->state_error);
+  if (error)
+    priv->state_error = g_error_copy (error);
+
+  g_object_notify (G_OBJECT (sview), "state");
 }
 
 static void
@@ -669,7 +728,7 @@ git_source_view_on_completed (GitAnnotatedSource *source,
   GitSourceViewPrivate *priv = sview->priv;
 
   if (error)
-    git_source_view_show_error (sview, error);
+    git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
   else
     {
       /* Forget the old painting source */
@@ -684,6 +743,8 @@ git_source_view_on_completed (GitAnnotatedSource *source,
 
       gdk_window_invalidate_rect (GTK_WIDGET (sview)->window, NULL, FALSE);
       git_source_view_update_scroll_adjustments (sview);
+
+      git_source_view_set_state (sview, GIT_SOURCE_VIEW_READY, NULL);
     }
 
   git_source_view_unref_loading_source (sview);
@@ -714,9 +775,27 @@ git_source_view_set_file (GitSourceView *sview,
 				   filename, revision,
 				   &error))
     {
-      git_source_view_show_error (sview, error);
+      git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
       git_source_view_unref_loading_source (sview);
       
       g_error_free (error);
     }
+  else
+    git_source_view_set_state (sview, GIT_SOURCE_VIEW_LOADING, NULL);
+}
+
+GitSourceViewState
+git_source_view_get_state (GitSourceView *sview)
+{
+  g_return_val_if_fail (GIT_IS_SOURCE_VIEW (sview), 0);
+
+  return sview->priv->state;
+}
+
+const GError *
+git_source_view_get_state_error (GitSourceView *sview)
+{
+  g_return_val_if_fail (GIT_IS_SOURCE_VIEW (sview), 0);
+
+  return sview->priv->state_error;
 }
