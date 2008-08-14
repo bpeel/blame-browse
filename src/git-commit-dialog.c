@@ -202,8 +202,15 @@ git_commit_dialog_update_label (GitCommitDialog *cdiag)
   if (priv->label)
     {
       if (priv->commit)
-	gtk_label_set_text (GTK_LABEL (priv->label),
-			    git_commit_get_hash (priv->commit));
+	{
+	  gchar *text = g_strdup_printf ("%s in %s",
+					 git_commit_get_hash (priv->commit),
+					 git_commit_get_repo (priv->commit));
+
+	  gtk_label_set_text (GTK_LABEL (priv->label), text);
+
+	  g_free (text);
+	}
       else
 	gtk_label_set_text (GTK_LABEL (priv->label), "No commit");
     }

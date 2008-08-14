@@ -40,7 +40,7 @@ G_DEFINE_TYPE (GitCommit, git_commit, G_TYPE_OBJECT);
 
 struct _GitCommitPrivate
 {
-  gchar *hash;
+  gchar *hash, *repo;
   GHashTable *props;
 };
 
@@ -48,7 +48,8 @@ enum
   {
     PROP_0,
 
-    PROP_HASH
+    PROP_HASH,
+    PROP_REPO
   };
 
 static void
@@ -70,6 +71,15 @@ git_commit_class_init (GitCommitClass *klass)
 			       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
 			       | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_HASH, pspec);
+
+  pspec = g_param_spec_string ("repo",
+			       "repository",
+			       "Location of the repository where this commit "
+			       "originated",
+			       ".",
+			       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
+			       | G_PARAM_WRITABLE);
+  g_object_class_install_property (gobject_class, PROP_REPO, pspec);
 }
 
 static void
@@ -91,6 +101,8 @@ git_commit_finalize (GObject *object)
 
   if (priv->hash)
     g_free (priv->hash);
+  if (priv->repo)
+    g_free (priv->repo);
   g_hash_table_destroy (priv->props);
 
   G_OBJECT_CLASS (git_commit_parent_class)->finalize (object);
@@ -110,6 +122,12 @@ git_commit_set_property (GObject *object, guint property_id,
 	g_free (priv->hash);
       priv->hash = g_strdup (g_value_get_string (value));
       break;
+
+    case PROP_REPO:
+      if (priv->repo)
+	g_free (priv->repo);
+      priv->repo = g_strdup (g_value_get_string (value));
+      break;
     }
 }
 
@@ -125,14 +143,18 @@ git_commit_get_property (GObject *object, guint property_id,
     case PROP_HASH:
       g_value_set_string (value, priv->hash);
       break;
+
+    case PROP_REPO:
+      g_value_set_string (value, priv->repo);
     }
 }
 
 GitCommit *
-git_commit_new (const gchar *hash)
+git_commit_new (const gchar *hash, const gchar *repo)
 {
   GitCommit *self = g_object_new (GIT_TYPE_COMMIT,
 				  "hash", hash,
+				  "repo", repo,
 				  NULL);
 
   return self;
@@ -144,6 +166,14 @@ git_commit_get_hash (GitCommit *commit)
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
 
   return commit->priv->hash;
+}
+
+const gchar *
+git_commit_get_repo (GitCommit *commit)
+{
+  g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
+
+  return commit->priv->repo;
 }
 
 void

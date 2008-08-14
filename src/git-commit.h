@@ -64,9 +64,10 @@ struct _GitCommit
 
 GType git_commit_get_type (void) G_GNUC_CONST;
 
-GitCommit *git_commit_new (const gchar *hash);
+GitCommit *git_commit_new (const gchar *hash, const gchar *repo);
 
 const gchar *git_commit_get_hash (GitCommit *commit);
+const gchar *git_commit_get_repo (GitCommit *commit);
 
 void git_commit_set_prop (GitCommit *commit, const gchar *prop_name,
 			  const gchar *value);

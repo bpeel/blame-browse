@@ -56,6 +56,8 @@ struct _GitAnnotatedSourcePrivate
   GitAnnotatedSourceLine current_line;
 
   GHashTable *commit_bag;
+  
+  gchar *repo;
 };
 
 enum
@@ -173,6 +175,9 @@ git_annotated_source_finalize (GObject *object)
   g_array_free (priv->lines, TRUE);
   g_hash_table_destroy (priv->commit_bag);
 
+  if (priv->repo)
+    g_free (priv->repo);
+
   G_OBJECT_CLASS (git_annotated_source_parent_class)->finalize (object);
 }
 
@@ -235,6 +240,10 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 
       return FALSE;
     }
+
+  if (priv->repo)
+    g_free (priv->repo);
+  priv->repo = g_strdup (repo);
 
   /* Revision can be NULL in which case it will terminate the argument
      list early and git will include uncommitted changes */
@@ -349,7 +358,7 @@ git_annotated_source_on_line (GitReader *reader,
 			g_free (hash);
 		      else
 			{
-			  commit = git_commit_new (hash);
+			  commit = git_commit_new (hash, priv->repo);
 			  g_hash_table_insert (priv->commit_bag, hash, commit);
 			}
 		      priv->current_line.commit = g_object_ref (commit);
