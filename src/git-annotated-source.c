@@ -216,7 +216,7 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 			    GError **error)
 {
   GitAnnotatedSourcePrivate *priv;
-  gchar *dir_part, *base_part;
+  gchar *repo, *base_part;
   gboolean ret;
 
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), FALSE);
@@ -228,15 +228,20 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
 
   git_annotated_source_clear_lines (source);
 
-  dir_part = g_path_get_dirname (filename);
-  base_part = g_path_get_basename (filename);
+  if (!git_find_repo (filename, &repo, &base_part))
+    {
+      g_set_error (error, GIT_ERROR, GIT_ERROR_NO_REPO,
+		   "No repo found for %s", filename);
+
+      return FALSE;
+    }
 
   /* Revision can be NULL in which case it will terminate the argument
      list early and git will include uncommitted changes */
-  ret = git_reader_start (priv->reader, dir_part, error, "blame", "-p",
+  ret = git_reader_start (priv->reader, repo, error, "blame", "-p",
 			  base_part, revision, NULL);
 
-  g_free (dir_part);
+  g_free (repo);
   g_free (base_part);
 
   return ret;

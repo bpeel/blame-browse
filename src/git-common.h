@@ -25,7 +25,8 @@
 
 typedef enum {
   GIT_ERROR_EXIT_STATUS,
-  GIT_ERROR_PARSE_ERROR
+  GIT_ERROR_PARSE_ERROR,
+  GIT_ERROR_NO_REPO
 } GitError;
 
 GQuark git_error_quark (void);
