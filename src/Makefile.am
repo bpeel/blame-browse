@@ -9,6 +9,7 @@ BUILT_SOURCES = $(MARSHALFILES) $(ENUMFILES)
 sources_public_h = \
 	git-annotated-source.h \
 	git-commit.h \
+	git-commit-bag.h \
 	git-commit-dialog.h \
 	git-common.h \
 	git-main-window.h \
@@ -21,6 +22,7 @@ sources_private_h = \
 blame_browse_SOURCES = \
 	git-annotated-source.c \
 	git-commit.c \
+	git-commit-bag.c \
 	git-commit-dialog.c \
 	git-common.c \
 	git-main-window.c \

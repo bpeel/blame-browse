@@ -26,6 +26,7 @@
 #include "git-annotated-source.h"
 #include "git-reader.h"
 #include "git-commit.h"
+#include "git-commit-bag.h"
 #include "git-common.h"
 
 static void git_annotated_source_dispose (GObject *object);
@@ -55,8 +56,6 @@ struct _GitAnnotatedSourcePrivate
   GArray *lines;
   GitAnnotatedSourceLine current_line;
 
-  GHashTable *commit_bag;
-  
   gchar *repo;
 };
 
@@ -112,9 +111,6 @@ git_annotated_source_init (GitAnnotatedSource *self)
   priv->lines = g_array_new (FALSE, FALSE, sizeof (GitAnnotatedSourceLine));
   priv->current_line.commit = NULL;
   priv->current_line.text = NULL;
-
-  priv->commit_bag = g_hash_table_new_full (g_str_hash, g_str_equal,
-					    g_free, g_object_unref);
 }
 
 static void
@@ -144,8 +140,6 @@ git_annotated_source_clear_lines (GitAnnotatedSource *source)
       g_free (priv->current_line.text);
       priv->current_line.text = NULL;
     }
-
-  g_hash_table_remove_all (priv->commit_bag);
 }
 
 static void
@@ -173,7 +167,6 @@ git_annotated_source_finalize (GObject *object)
 
   git_annotated_source_clear_lines (self);
   g_array_free (priv->lines, TRUE);
-  g_hash_table_destroy (priv->commit_bag);
 
   if (priv->repo)
     g_free (priv->repo);
@@ -350,17 +343,14 @@ git_annotated_source_on_line (GitReader *reader,
 		    }
 		  else
 		    {
-		      gchar *hash = g_strndup (str, GIT_COMMIT_HASH_LENGTH);
 		      GitCommit *commit;
+		      GitCommitBag *commit_bag = git_commit_bag_get_default ();
+		      gchar *hash = g_strndup (str, GIT_COMMIT_HASH_LENGTH);
 
-		      if ((commit = g_hash_table_lookup (priv->commit_bag,
-							 hash)))
-			g_free (hash);
-		      else
-			{
-			  commit = git_commit_new (hash, priv->repo);
-			  g_hash_table_insert (priv->commit_bag, hash, commit);
-			}
+		      commit = git_commit_bag_get (commit_bag, hash,
+						   priv->repo);
+		      g_free (hash);
+						   
 		      priv->current_line.commit = g_object_ref (commit);
 		      priv->current_line.orig_line = nums[0];
 		      priv->current_line.final_line = nums[1];
