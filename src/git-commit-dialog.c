@@ -22,8 +22,12 @@
 #include <gtk/gtkdialog.h>
 #include <gtk/gtklabel.h>
 #include <gtk/gtkbox.h>
+#include <gtk/gtktable.h>
+#include <gtk/gtktextview.h>
+#include <gtk/gtkscrolledwindow.h>
 
 #include "git-commit-dialog.h"
+#include "intl.h"
 
 static void git_commit_dialog_dispose (GObject *object);
 
@@ -36,7 +40,7 @@ static void git_commit_dialog_get_property (GObject *object,
 					    GValue *value,
 					    GParamSpec *pspec);
 
-static void git_commit_dialog_update_label (GitCommitDialog *cdiag);
+static void git_commit_dialog_update (GitCommitDialog *cdiag);
 
 G_DEFINE_TYPE (GitCommitDialog, git_commit_dialog, GTK_TYPE_DIALOG);
 
@@ -47,8 +51,9 @@ G_DEFINE_TYPE (GitCommitDialog, git_commit_dialog, GTK_TYPE_DIALOG);
 struct _GitCommitDialogPrivate
 {
   GitCommit *commit;
+  guint has_log_data_handler;
 
-  GtkWidget *label;
+  GtkWidget *table, *log_view;
 };
 
 enum
@@ -82,16 +87,32 @@ static void
 git_commit_dialog_init (GitCommitDialog *self)
 {
   GitCommitDialogPrivate *priv;
+  GtkWidget *scrolled_window;
 
   priv = self->priv = GIT_COMMIT_DIALOG_GET_PRIVATE (self);
 
-  priv->label = g_object_ref_sink (gtk_label_new (NULL));
-  gtk_widget_show (priv->label);
+  priv->table = g_object_ref_sink (gtk_table_new (0, 2, FALSE));
+  gtk_widget_show (priv->table);
 
-  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), priv->label,
+  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), priv->table,
+		      FALSE, FALSE, 0);
+
+  scrolled_window = gtk_scrolled_window_new (NULL, NULL);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
+				  GTK_POLICY_AUTOMATIC,
+				  GTK_POLICY_AUTOMATIC);
+
+  priv->log_view = g_object_ref_sink (gtk_text_view_new ());
+  g_object_set (priv->log_view,
+		"editable", FALSE,
+		"cursor-visible", FALSE,
+		NULL);
+  gtk_widget_show (priv->log_view);
+  gtk_container_add (GTK_CONTAINER (scrolled_window), priv->log_view);
+  
+  gtk_widget_show (scrolled_window);
+  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), scrolled_window,
 		      TRUE, TRUE, 0);
-
-  git_commit_dialog_update_label (self);
 }
 
 static void
@@ -101,6 +122,8 @@ git_commit_dialog_unref_commit (GitCommitDialog *cdiag)
 
   if (priv->commit)
     {
+      g_signal_handler_disconnect (priv->commit,
+				   priv->has_log_data_handler);
       g_object_unref (priv->commit);
       priv->commit = NULL;
     }
@@ -114,10 +137,16 @@ git_commit_dialog_dispose (GObject *object)
 
   git_commit_dialog_unref_commit (self);
 
-  if (priv->label)
+  if (priv->table)
     {
-      g_object_unref (priv->label);
-      priv->label = NULL;
+      g_object_unref (priv->table);
+      priv->table = NULL;
+    }
+
+  if (priv->log_view)
+    {
+      g_object_unref (priv->log_view);
+      priv->log_view = NULL;
     }
 
   G_OBJECT_CLASS (git_commit_dialog_parent_class)->dispose (object);
@@ -129,6 +158,87 @@ git_commit_dialog_new (void)
   GtkWidget *self = g_object_new (GIT_TYPE_COMMIT_DIALOG, NULL);
 
   return self;
+}
+
+static void
+git_commit_dialog_update (GitCommitDialog *cdiag)
+{
+  GitCommitDialogPrivate *priv = cdiag->priv;
+  GtkWidget *widget;
+
+  if (priv->table)
+    {
+      /* Remove all existing parent commit labels */
+      gtk_container_foreach (GTK_CONTAINER (priv->table),
+			     (GtkCallback) gtk_widget_destroy, NULL);
+
+      if (priv->commit)
+	{
+	  /* Add a row for the commit's own hash */
+	  widget = gtk_label_new (NULL);
+	  gtk_label_set_markup (GTK_LABEL (widget), _("<b>Commit</b>"));
+	  gtk_widget_show (widget);
+	  gtk_table_attach (GTK_TABLE (priv->table),
+			    widget,
+			    0, 1, 0, 1,
+			    GTK_FILL | GTK_SHRINK, GTK_FILL | GTK_SHRINK,
+			    0, 0);
+
+	  widget = gtk_label_new (git_commit_get_hash (priv->commit));
+	  gtk_widget_show (widget);
+	  gtk_table_attach (GTK_TABLE (priv->table),
+			    widget,
+			    1, 2, 0, 1,
+			    GTK_FILL | GTK_SHRINK | GTK_EXPAND,
+			    GTK_FILL | GTK_SHRINK,
+			    0, 0);
+
+	  if (git_commit_get_has_log_data (priv->commit))
+	    {
+	      const GSList *node;
+	      int y = 1;
+
+	      for (node = git_commit_get_parents (priv->commit);
+		   node;
+		   node = node->next, y++)
+		{
+		  GitCommit *commit = (GitCommit *) node->data;
+
+		  widget = gtk_label_new (NULL);
+		  gtk_label_set_markup (GTK_LABEL (widget), _("<b>Parent</b>"));
+		  gtk_widget_show (widget);
+		  gtk_table_attach (GTK_TABLE (priv->table),
+				    widget,
+				    0, 1, y, y + 1,
+				    GTK_FILL | GTK_SHRINK,
+				    GTK_FILL | GTK_SHRINK,
+				    0, 0);
+
+		  widget = gtk_label_new (git_commit_get_hash (commit));
+		  gtk_widget_show (widget);
+		  gtk_table_attach (GTK_TABLE (priv->table),
+				    widget,
+				    1, 2, y, y + 1,
+				    GTK_FILL | GTK_SHRINK | GTK_EXPAND,
+				    GTK_FILL | GTK_SHRINK,
+				    0, 0);
+		}
+	    }
+	}
+    }
+
+  if (priv->log_view)
+    {
+      GtkTextBuffer *buffer
+	= gtk_text_view_get_buffer (GTK_TEXT_VIEW (priv->log_view));
+
+      gtk_text_buffer_set_text (buffer,
+				priv->commit == NULL ? ""
+				: git_commit_get_has_log_data (priv->commit)
+				? git_commit_get_log_data (priv->commit)
+				: _("Loading..."),
+				-1);
+    }      
 }
 
 void
@@ -149,7 +259,16 @@ git_commit_dialog_set_commit (GitCommitDialog *cdiag,
 
   priv->commit = commit;
 
-  git_commit_dialog_update_label (cdiag);
+  if (commit)
+    {
+      priv->has_log_data_handler
+	= g_signal_connect_swapped (commit, "notify::has-log-data",
+				    G_CALLBACK (git_commit_dialog_update),
+				    cdiag);
+      git_commit_fetch_log_data (commit);
+    }
+
+  git_commit_dialog_update (cdiag);
 
   g_object_notify (G_OBJECT (cdiag), "commit");
 }
@@ -175,6 +294,10 @@ git_commit_dialog_set_property (GObject *object,
     case PROP_COMMIT:
       git_commit_dialog_set_commit (cdiag, g_value_get_object (value));
       break;
+
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      break;
     }
 }
 
@@ -191,27 +314,9 @@ git_commit_dialog_get_property (GObject *object,
     case PROP_COMMIT:
       g_value_set_object (value, git_commit_dialog_get_commit (cdiag));
       break;
-    }
-}
 
-static void
-git_commit_dialog_update_label (GitCommitDialog *cdiag)
-{
-  GitCommitDialogPrivate *priv = cdiag->priv;
-
-  if (priv->label)
-    {
-      if (priv->commit)
-	{
-	  gchar *text = g_strdup_printf ("%s in %s",
-					 git_commit_get_hash (priv->commit),
-					 git_commit_get_repo (priv->commit));
-
-	  gtk_label_set_text (GTK_LABEL (priv->label), text);
-
-	  g_free (text);
-	}
-      else
-	gtk_label_set_text (GTK_LABEL (priv->label), "No commit");
+    default:
+      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
+      break;
     }
 }
