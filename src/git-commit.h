@@ -69,6 +69,11 @@ GitCommit *git_commit_new (const gchar *hash, const gchar *repo);
 const gchar *git_commit_get_hash (GitCommit *commit);
 const gchar *git_commit_get_repo (GitCommit *commit);
 
+gboolean git_commit_get_has_log_data (GitCommit *commit);
+const gchar *git_commit_get_log_data (GitCommit *commit);
+const GSList *git_commit_get_parents (GitCommit *commit);
+void git_commit_fetch_log_data (GitCommit *commit);
+
 void git_commit_set_prop (GitCommit *commit, const gchar *prop_name,
 			  const gchar *value);
 const gchar *git_commit_get_prop (GitCommit *commit, const gchar *prop_name);
