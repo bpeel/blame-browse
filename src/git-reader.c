@@ -203,6 +203,8 @@ git_reader_check_complete (GitReader *reader)
 {
   GitReaderPrivate *priv = reader->priv;
 
+  g_object_ref (reader);
+
   if (priv->child_pid == 0
       && priv->child_stdout_source == 0
       && priv->child_stderr_source == 0)
@@ -250,6 +252,8 @@ git_reader_check_complete (GitReader *reader)
 	    g_error_free (error);
 	}
     }
+
+  g_object_unref (reader);
 }
 
 static gboolean
@@ -260,6 +264,8 @@ git_reader_check_lines (GitReader *reader)
   gchar *start = priv->line_string->str, *end;
   gsize len = priv->line_string->len;
   gboolean ret = TRUE;
+
+  g_object_ref (reader);
 
   while ((end = memchr (start, '\n', len)))
     {
@@ -281,6 +287,8 @@ git_reader_check_lines (GitReader *reader)
      string */
   memmove (priv->line_string->str, start, len);
   g_string_truncate (priv->line_string, len);
+
+  g_object_unref (reader);
 
   return ret;
 }
