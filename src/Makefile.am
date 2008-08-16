@@ -11,6 +11,7 @@ sources_public_h = \
 	git-commit.h \
 	git-commit-bag.h \
 	git-commit-dialog.h \
+	git-commit-link-button.h \
 	git-common.h \
 	git-main-window.h \
 	git-reader.h \
@@ -24,6 +25,7 @@ blame_browse_SOURCES = \
 	git-commit.c \
 	git-commit-bag.c \
 	git-commit-dialog.c \
+	git-commit-link-button.c \
 	git-common.c \
 	git-main-window.c \
 	git-reader.c \

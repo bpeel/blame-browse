@@ -27,6 +27,7 @@
 #include <gtk/gtkscrolledwindow.h>
 
 #include "git-commit-dialog.h"
+#include "git-commit-link-button.h"
 #include "intl.h"
 
 static void git_commit_dialog_dispose (GObject *object);
@@ -42,6 +43,10 @@ static void git_commit_dialog_get_property (GObject *object,
 
 static void git_commit_dialog_update (GitCommitDialog *cdiag);
 
+static void git_commit_dialog_unref_buttons (GitCommitDialog *cdiag);
+
+typedef struct _GitCommitDialogButtonData GitCommitDialogButtonData;
+
 G_DEFINE_TYPE (GitCommitDialog, git_commit_dialog, GTK_TYPE_DIALOG);
 
 #define GIT_COMMIT_DIALOG_GET_PRIVATE(obj) \
@@ -52,8 +57,17 @@ struct _GitCommitDialogPrivate
 {
   GitCommit *commit;
   guint has_log_data_handler;
+  GitCommitDialogButtonData *buttons;
 
   GtkWidget *table, *log_view;
+};
+
+struct _GitCommitDialogButtonData
+{
+  GtkWidget *button;
+  guint handler;
+
+  GitCommitDialogButtonData *next;
 };
 
 enum
@@ -130,6 +144,24 @@ git_commit_dialog_unref_commit (GitCommitDialog *cdiag)
 }
 
 static void
+git_commit_dialog_unref_buttons (GitCommitDialog *cdiag)
+{
+  GitCommitDialogPrivate *priv = cdiag->priv;
+  GitCommitDialogButtonData *bdata, *next;
+
+  for (bdata = priv->buttons; bdata; bdata = next)
+    {
+      next = bdata->next;
+
+      g_signal_handler_disconnect (bdata->button, bdata->handler);
+      g_object_unref (bdata->button);
+      g_slice_free (GitCommitDialogButtonData, bdata);
+    }
+
+  priv->buttons = NULL;
+}
+
+static void
 git_commit_dialog_dispose (GObject *object)
 {
   GitCommitDialog *self = (GitCommitDialog *) object;
@@ -149,6 +181,8 @@ git_commit_dialog_dispose (GObject *object)
       priv->log_view = NULL;
     }
 
+  git_commit_dialog_unref_buttons (self);
+
   G_OBJECT_CLASS (git_commit_dialog_parent_class)->dispose (object);
 }
 
@@ -161,10 +195,37 @@ git_commit_dialog_new (void)
 }
 
 static void
+git_commit_dialog_on_commit_selected (GtkButton *button, GitCommitDialog *cdiag)
+{
+  GitCommit *commit
+    = git_commit_link_button_get_commit (GIT_COMMIT_LINK_BUTTON (button));
+
+  git_commit_dialog_set_commit (cdiag, commit);
+}
+
+static void
+git_commit_dialog_add_commit_button (GitCommitDialog *cdiag, GtkWidget *widget)
+{
+  GitCommitDialogPrivate *priv = cdiag->priv;
+  GitCommitDialogButtonData *bdata = g_slice_new (GitCommitDialogButtonData);
+
+  bdata->button = g_object_ref_sink (widget);
+  bdata->handler
+    = g_signal_connect (widget, "clicked",
+			G_CALLBACK (git_commit_dialog_on_commit_selected),
+			cdiag);
+  
+  bdata->next = priv->buttons;
+  priv->buttons = bdata;
+}
+
+static void
 git_commit_dialog_update (GitCommitDialog *cdiag)
 {
   GitCommitDialogPrivate *priv = cdiag->priv;
   GtkWidget *widget;
+
+  git_commit_dialog_unref_buttons (cdiag);
 
   if (priv->table)
     {
@@ -184,7 +245,8 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
 			    GTK_FILL | GTK_SHRINK, GTK_FILL | GTK_SHRINK,
 			    0, 0);
 
-	  widget = gtk_label_new (git_commit_get_hash (priv->commit));
+	  widget = git_commit_link_button_new (priv->commit);
+	  git_commit_dialog_add_commit_button (cdiag, widget);
 	  gtk_widget_show (widget);
 	  gtk_table_attach (GTK_TABLE (priv->table),
 			    widget,
@@ -214,7 +276,8 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
 				    GTK_FILL | GTK_SHRINK,
 				    0, 0);
 
-		  widget = gtk_label_new (git_commit_get_hash (commit));
+		  widget = git_commit_link_button_new (commit);
+		  git_commit_dialog_add_commit_button (cdiag, widget);
 		  gtk_widget_show (widget);
 		  gtk_table_attach (GTK_TABLE (priv->table),
 				    widget,
