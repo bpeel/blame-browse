@@ -60,6 +60,10 @@ struct _GitCommitDialog
   GitCommitDialogPrivate *priv;
 };
 
+enum {
+  GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
+};
+
 GType git_commit_dialog_get_type (void) G_GNUC_CONST;
 
 GtkWidget *git_commit_dialog_new (void);

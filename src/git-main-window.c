@@ -31,6 +31,7 @@
 #include "intl.h"
 
 static void git_main_window_dispose (GObject *object);
+static void git_main_window_finalize (GObject *object);
 
 static void git_main_window_update_source_state (GitMainWindow *main_window);
 static void git_main_window_on_commit_selected (GitSourceView *sview,
@@ -51,6 +52,9 @@ struct _GitMainWindowPrivate
   guint source_state_id;
   guint source_state_handler;
   guint commit_selected_handler;
+  guint response_handler;
+
+  gchar *filename, *revision;
 };
 
 static void
@@ -59,6 +63,7 @@ git_main_window_class_init (GitMainWindowClass *klass)
   GObjectClass *gobject_class = (GObjectClass *) klass;
 
   gobject_class->dispose = git_main_window_dispose;
+  gobject_class->finalize = git_main_window_finalize;
 
   g_type_class_add_private (klass, sizeof (GitMainWindowPrivate));
 }
@@ -128,11 +133,27 @@ git_main_window_dispose (GObject *object)
 
   if (priv->commit_dialog)
     {
+      g_signal_handler_disconnect (priv->commit_dialog,
+				   priv->response_handler);
       g_object_unref (priv->commit_dialog);
       priv->commit_dialog = NULL;
     }
 
   G_OBJECT_CLASS (git_main_window_parent_class)->dispose (object);
+}
+
+static void
+git_main_window_finalize (GObject *object)
+{
+  GitMainWindow *self = (GitMainWindow *) object;
+  GitMainWindowPrivate *priv = self->priv;
+
+  if (priv->filename)
+    g_free (priv->filename);
+  if (priv->revision)
+    g_free (priv->revision);
+
+  G_OBJECT_CLASS (git_main_window_parent_class)->finalize (object);
 }
 
 GtkWidget *
@@ -151,6 +172,7 @@ git_main_window_set_file (GitMainWindow *main_window,
 			  const gchar *revision)
 {
   GitMainWindowPrivate *priv;
+  gchar *filename_copy, *revision_copy;
 
   g_return_if_fail (GIT_IS_MAIN_WINDOW (main_window));
   g_return_if_fail (filename != NULL);
@@ -160,6 +182,20 @@ git_main_window_set_file (GitMainWindow *main_window,
   if (priv->source_view)
     git_source_view_set_file (GIT_SOURCE_VIEW (priv->source_view),
 			      filename, revision);
+
+  filename_copy = g_strdup (filename);
+  if (revision)
+    revision_copy = g_strdup (revision);
+  else
+    revision_copy = NULL;
+
+  if (priv->filename)
+    g_free (priv->filename);
+  if (priv->revision)
+    g_free (priv->revision);
+
+  priv->filename = filename_copy;
+  priv->revision = revision_copy;
 }
 
 static void
@@ -212,6 +248,26 @@ git_main_window_update_source_state (GitMainWindow *main_window)
 }
 
 static void
+git_main_window_on_response (GtkDialog *dialog, gint response,
+			     GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (response == GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
+      && priv->filename)
+    {
+      GitCommit *commit
+	= git_commit_dialog_get_commit (GIT_COMMIT_DIALOG (dialog));
+     
+      if (commit)
+	git_main_window_set_file (main_window, priv->filename,
+				  git_commit_get_hash (commit));
+    }
+
+  gtk_widget_hide (GTK_WIDGET (dialog));
+}
+
+static void
 git_main_window_on_commit_selected (GitSourceView *sview,
 				    GitCommit *commit,
 				    GitMainWindow *main_window)
@@ -225,6 +281,11 @@ git_main_window_on_commit_selected (GitSourceView *sview,
       /* Keep the window alive when it is closed */
       g_signal_connect (priv->commit_dialog, "delete_event",
 			G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+
+      priv->response_handler
+	= g_signal_connect (priv->commit_dialog, "response",
+			    G_CALLBACK (git_main_window_on_response),
+			    main_window);
     }
 
   g_object_set (priv->commit_dialog, "commit", commit, NULL);

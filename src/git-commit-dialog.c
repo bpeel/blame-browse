@@ -25,6 +25,7 @@
 #include <gtk/gtktable.h>
 #include <gtk/gtktextview.h>
 #include <gtk/gtkscrolledwindow.h>
+#include <gtk/gtkstock.h>
 
 #include "git-commit-dialog.h"
 #include "git-commit-link-button.h"
@@ -127,6 +128,12 @@ git_commit_dialog_init (GitCommitDialog *self)
   gtk_widget_show (scrolled_window);
   gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), scrolled_window,
 		      TRUE, TRUE, 0);
+
+  gtk_dialog_add_buttons (GTK_DIALOG (self),
+			  _("View _blame"),
+			  GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME,
+			  GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE,
+			  NULL);
 }
 
 static void
