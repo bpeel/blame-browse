@@ -746,6 +746,8 @@ git_source_view_set_state (GitSourceView *sview,
     g_error_free (priv->state_error);
   if (error)
     priv->state_error = g_error_copy (error);
+  else
+    priv->state_error = NULL;
 
   g_object_notify (G_OBJECT (sview), "state");
 }
