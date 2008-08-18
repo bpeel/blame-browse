@@ -21,7 +21,7 @@
 
 #include <gtk/gtkdialog.h>
 #include <gtk/gtklabel.h>
-#include <gtk/gtkbox.h>
+#include <gtk/gtkvbox.h>
 #include <gtk/gtktable.h>
 #include <gtk/gtktextview.h>
 #include <gtk/gtkscrolledwindow.h>
@@ -102,20 +102,30 @@ static void
 git_commit_dialog_init (GitCommitDialog *self)
 {
   GitCommitDialogPrivate *priv;
-  GtkWidget *scrolled_window;
+  GtkWidget *content, *scrolled_window;
 
   priv = self->priv = GIT_COMMIT_DIALOG_GET_PRIVATE (self);
 
+  gtk_dialog_set_has_separator (GTK_DIALOG (self), FALSE);
+  gtk_container_set_border_width (GTK_CONTAINER (self), 5);
+
   priv->table = g_object_ref_sink (gtk_table_new (0, 2, FALSE));
+  gtk_table_set_col_spacing (GTK_TABLE (priv->table), 0, 5);
   gtk_widget_show (priv->table);
 
-  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), priv->table,
-		      FALSE, FALSE, 0);
+  g_object_set (GTK_DIALOG (self)->vbox, "spacing", 2, NULL);
+
+  content = gtk_vbox_new (FALSE, 11);
+  gtk_container_set_border_width (GTK_CONTAINER (content), 5);
+
+  gtk_box_pack_start (GTK_BOX (content), priv->table, FALSE, FALSE, 0);
 
   scrolled_window = gtk_scrolled_window_new (NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
 				  GTK_POLICY_AUTOMATIC,
 				  GTK_POLICY_AUTOMATIC);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolled_window),
+				       GTK_SHADOW_ETCHED_IN);
 
   priv->log_view = g_object_ref_sink (gtk_text_view_new ());
   g_object_set (priv->log_view,
@@ -126,7 +136,10 @@ git_commit_dialog_init (GitCommitDialog *self)
   gtk_container_add (GTK_CONTAINER (scrolled_window), priv->log_view);
   
   gtk_widget_show (scrolled_window);
-  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), scrolled_window,
+  gtk_box_pack_start (GTK_BOX (content), scrolled_window, TRUE, TRUE, 0);
+
+  gtk_widget_show (content);
+  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), content,
 		      TRUE, TRUE, 0);
 
   gtk_dialog_add_buttons (GTK_DIALOG (self),
@@ -244,7 +257,10 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
 	{
 	  /* Add a row for the commit's own hash */
 	  widget = gtk_label_new (NULL);
-	  gtk_label_set_markup (GTK_LABEL (widget), _("<b>Commit</b>"));
+	  g_object_set (widget, "use-markup", TRUE,
+			"label", _("<b>Commit</b>"),
+			"xalign", 0.0f,
+			NULL);
 	  gtk_widget_show (widget);
 	  gtk_table_attach (GTK_TABLE (priv->table),
 			    widget,
@@ -274,7 +290,10 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
 		  GitCommit *commit = (GitCommit *) node->data;
 
 		  widget = gtk_label_new (NULL);
-		  gtk_label_set_markup (GTK_LABEL (widget), _("<b>Parent</b>"));
+		  g_object_set (widget, "use-markup", TRUE,
+				"label", _("<b>Parent</b>"),
+				"xalign", 0.0f,
+				NULL);
 		  gtk_widget_show (widget);
 		  gtk_table_attach (GTK_TABLE (priv->table),
 				    widget,
