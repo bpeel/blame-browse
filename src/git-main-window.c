@@ -277,6 +277,8 @@ git_main_window_on_commit_selected (GitSourceView *sview,
   if (priv->commit_dialog == NULL)
     {
       priv->commit_dialog = g_object_ref_sink (git_commit_dialog_new ());
+      gtk_window_set_default_size (GTK_WINDOW (priv->commit_dialog),
+				   -1, 400);
      
       /* Keep the window alive when it is closed */
       g_signal_connect (priv->commit_dialog, "delete_event",

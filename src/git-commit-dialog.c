@@ -131,6 +131,8 @@ git_commit_dialog_init (GitCommitDialog *self)
   g_object_set (priv->log_view,
 		"editable", FALSE,
 		"cursor-visible", FALSE,
+		"left-margin", 8,
+		"right-margin", 8,
 		NULL);
   gtk_widget_show (priv->log_view);
   gtk_container_add (GTK_CONTAINER (scrolled_window), priv->log_view);
