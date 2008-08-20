@@ -3,6 +3,7 @@ bin_PROGRAMS = blame-browse
 MARSHALFILES = git-marshal.c git-marshal.h
 STAMPFILES = stamp-git-marshal.h stamp-git-enum-types.h
 ENUMFILES = git-enum-types.c git-enum-types.h
+full_srcdir = `cd "$(top_srcdir)" && pwd`
 
 BUILT_SOURCES = $(MARSHALFILES) $(ENUMFILES)
 
@@ -35,7 +36,10 @@ blame_browse_SOURCES = \
 	$(sources_private_h) \
 	$(BUILT_SOURCES)
 
-INCLUDES = @DEPS_CFLAGS@
+INCLUDES = \
+	@DEPS_CFLAGS@ \
+	-DBB_DATADIR="\"$(pkgdatadir)\"" \
+	-DBB_SRCDIR="\"$(full_srcdir)\""
 
 blame_browse_LDFLAGS = @DEPS_LIBS@
 

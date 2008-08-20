@@ -24,6 +24,7 @@
 #include <gtk/gtkstatusbar.h>
 #include <gtk/gtkcontainer.h>
 #include <gtk/gtkscrolledwindow.h>
+#include <gtk/gtkuimanager.h>
 
 #include "git-main-window.h"
 #include "git-source-view.h"
@@ -37,6 +38,8 @@ static void git_main_window_update_source_state (GitMainWindow *main_window);
 static void git_main_window_on_commit_selected (GitSourceView *sview,
 						GitCommit *commit,
 						GitMainWindow *main_window);
+
+static GtkUIManager *git_main_window_create_ui_manager (void);
 
 G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
@@ -57,6 +60,13 @@ struct _GitMainWindowPrivate
   gchar *filename, *revision;
 };
 
+static GtkActionEntry
+git_main_window_actions[] =
+  {
+    { "GoBack", "Back", "Back", NULL, "Back", NULL },
+    { "GoForward", "Forward", "Forward", NULL, "Forward", NULL }
+  };
+
 static void
 git_main_window_class_init (GitMainWindowClass *klass)
 {
@@ -73,10 +83,32 @@ git_main_window_init (GitMainWindow *self)
 {
   GitMainWindowPrivate *priv;
   GtkWidget *layout, *scrolled_win;
+  GtkUIManager *ui_manager;
 
   priv = self->priv = GIT_MAIN_WINDOW_GET_PRIVATE (self);
 
   layout = gtk_vbox_new (FALSE, 0);
+
+  if ((ui_manager = git_main_window_create_ui_manager ()))
+    {
+      GtkWidget *widget;
+      GtkActionGroup *action_group;
+
+      action_group = gtk_action_group_new ("GitActions");
+      gtk_action_group_add_actions (action_group, git_main_window_actions,
+				    G_N_ELEMENTS (git_main_window_actions),
+				    self);
+
+      gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
+
+      if ((widget = gtk_ui_manager_get_widget (ui_manager, "/toolbar")))
+	gtk_box_pack_start (GTK_BOX (layout), widget,
+			    FALSE, FALSE, 0);
+
+      g_object_unref (action_group);
+
+      g_object_unref (ui_manager);
+    }
 
   scrolled_win = gtk_scrolled_window_new (NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_win),
@@ -293,4 +325,39 @@ git_main_window_on_commit_selected (GitSourceView *sview,
   g_object_set (priv->commit_dialog, "commit", commit, NULL);
   
   gtk_window_present (GTK_WINDOW (priv->commit_dialog));
+}
+
+static GtkUIManager *
+git_main_window_create_ui_manager (void)
+{
+  GtkUIManager *ui_manager;
+  GError *error = NULL;
+
+  ui_manager = gtk_ui_manager_new ();
+  
+  /* Try the source dir first */
+  if (!gtk_ui_manager_add_ui_from_file (ui_manager,
+					BB_SRCDIR "/data/main-win-ui.xml",
+					&error))
+    {
+      /* If the file doesn't exist then try the package data folder */
+      if (error->domain == G_FILE_ERROR && error->code == G_FILE_ERROR_NOENT)
+	{
+	  g_clear_error (&error);
+	  gtk_ui_manager_add_ui_from_file (ui_manager,
+					   BB_DATADIR
+					   "/ui/main-win-ui.xml",
+					   &error);	    
+	}
+    }
+
+  if (error)
+    {
+      g_warning ("Failed to load main-win-ui.xml: %s", error->message);
+      g_error_free (error);
+      g_object_unref (ui_manager);
+      ui_manager = NULL;
+    }
+
+  return ui_manager;
 }

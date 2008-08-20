@@ -19,5 +19,7 @@
 /src/stamp-*.h
 /src/git-enum-types.c
 /src/git-enum-types.h
+/data/Makefile
+/data/Makefile.in
 .deps
 *.o
