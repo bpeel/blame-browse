@@ -22,4 +22,13 @@
   <toolitem action="GoBack" />
   <toolitem action="GoForward" />
  </toolbar>
+
+ <menubar>
+  <menu action="File">
+   <menuitem action="FileQuit" />
+  </menu>
+  <menu action="Help">
+   <menuitem action="HelpAbout" />
+  </menu>
+ </menubar>
 </ui>

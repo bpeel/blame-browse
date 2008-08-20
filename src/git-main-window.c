@@ -25,6 +25,8 @@
 #include <gtk/gtkcontainer.h>
 #include <gtk/gtkscrolledwindow.h>
 #include <gtk/gtkuimanager.h>
+#include <gtk/gtkstock.h>
+#include <gtk/gtkaboutdialog.h>
 
 #include "git-main-window.h"
 #include "git-source-view.h"
@@ -40,6 +42,11 @@ static void git_main_window_on_commit_selected (GitSourceView *sview,
 						GitMainWindow *main_window);
 
 static GtkUIManager *git_main_window_create_ui_manager (void);
+
+static void git_main_window_on_quit (GtkAction *action,
+				     GitMainWindow *main_window);
+static void git_main_window_on_about (GtkAction *action,
+				      GitMainWindow *main_window);
 
 G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
@@ -63,8 +70,18 @@ struct _GitMainWindowPrivate
 static GtkActionEntry
 git_main_window_actions[] =
   {
-    { "GoBack", "Back", "Back", NULL, "Back", NULL },
-    { "GoForward", "Forward", "Forward", NULL, "Forward", NULL }
+    { "File", NULL, N_("_File"), NULL,
+      NULL, NULL },
+    { "Help", NULL, N_("_Help"), NULL,
+      NULL, NULL },
+    { "FileQuit", GTK_STOCK_QUIT, N_("_Quit"), NULL,
+      NULL, G_CALLBACK (git_main_window_on_quit) },
+    { "HelpAbout", GTK_STOCK_ABOUT, N_("_About"), NULL,
+      NULL, G_CALLBACK (git_main_window_on_about) },
+    { "GoBack", GTK_STOCK_GO_BACK, N_("Back"), NULL,
+      N_("Go back to previously visited commit"), NULL },
+    { "GoForward", GTK_STOCK_GO_FORWARD, N_("Forward"), NULL,
+      N_("Go forward to a previously visited commit"), NULL }
   };
 
 static void
@@ -93,6 +110,9 @@ git_main_window_init (GitMainWindow *self)
     {
       GtkWidget *widget;
       GtkActionGroup *action_group;
+      GtkAccelGroup *accel_group;
+
+      accel_group = gtk_accel_group_new ();
 
       action_group = gtk_action_group_new ("GitActions");
       gtk_action_group_add_actions (action_group, git_main_window_actions,
@@ -101,9 +121,16 @@ git_main_window_init (GitMainWindow *self)
 
       gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
 
+      if ((widget = gtk_ui_manager_get_widget (ui_manager, "/menubar")))
+	gtk_box_pack_start (GTK_BOX (layout), widget,
+			    FALSE, FALSE, 0);
+
       if ((widget = gtk_ui_manager_get_widget (ui_manager, "/toolbar")))
 	gtk_box_pack_start (GTK_BOX (layout), widget,
 			    FALSE, FALSE, 0);
+
+      accel_group = gtk_ui_manager_get_accel_group (ui_manager);
+      gtk_window_add_accel_group (GTK_WINDOW (self), accel_group);
 
       g_object_unref (action_group);
 
@@ -360,4 +387,37 @@ git_main_window_create_ui_manager (void)
     }
 
   return ui_manager;
+}
+
+static void
+git_main_window_on_quit (GtkAction *action,
+			 GitMainWindow *main_window)
+{
+  gtk_widget_destroy (GTK_WIDGET (main_window));
+}
+
+static void
+git_main_window_on_about (GtkAction *action,
+			  GitMainWindow *main_window)
+{
+  const gchar *license_text =
+    _("This program is free software: you can redistribute it and/or "
+      "modify it under the terms of the GNU General Public License as "
+      "published by the Free Software Foundation, either version 3 of "
+      "the License, or (at your option) any later version.");
+  const gchar *authors[] =
+    {
+      "Neil Roberts <bpeeluk@yahoo.co.uk>",
+      NULL
+    };
+
+  gtk_show_about_dialog (GTK_WINDOW (main_window),
+			 "version", PACKAGE_VERSION,
+			 "website",
+			 "http://www.busydoingnothing.co.uk/blame-browse/",
+			 "comments", _("GUI front-end for git-blame"),
+			 "license", license_text,
+			 "wrap-license", TRUE,
+			 "authors", authors,
+			 NULL);
 }

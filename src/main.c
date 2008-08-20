@@ -54,7 +54,7 @@ main (int argc, char **argv)
 
   main_win = git_main_window_new ();
   gtk_window_set_default_size (GTK_WINDOW (main_win), 560, 460);
-  g_signal_connect (main_win, "delete-event", G_CALLBACK (gtk_main_quit), NULL);
+  g_signal_connect (main_win, "destroy", G_CALLBACK (gtk_main_quit), NULL);
 
   git_main_window_set_file (GIT_MAIN_WINDOW (main_win), filename, revision);
 

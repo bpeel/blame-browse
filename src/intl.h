@@ -20,6 +20,7 @@
 
 /* Stubs */
 #define _(x) (x)
+#define N_(x) (x)
 #define ngettext(single, plural, n) ((n) == 1 ? (single) : (plural))
 
 #endif /* __INTL_H__ */
