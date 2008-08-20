@@ -72,15 +72,17 @@ git_main_window_actions[] =
   {
     { "File", NULL, N_("_File"), NULL,
       NULL, NULL },
+    { "Go", NULL, N_("_Go"), NULL,
+      NULL, NULL },
     { "Help", NULL, N_("_Help"), NULL,
       NULL, NULL },
     { "FileQuit", GTK_STOCK_QUIT, N_("_Quit"), NULL,
       NULL, G_CALLBACK (git_main_window_on_quit) },
     { "HelpAbout", GTK_STOCK_ABOUT, N_("_About"), NULL,
       NULL, G_CALLBACK (git_main_window_on_about) },
-    { "GoBack", GTK_STOCK_GO_BACK, N_("Back"), NULL,
+    { "GoBack", GTK_STOCK_GO_BACK, N_("_Back"), "<Alt>Left",
       N_("Go back to previously visited commit"), NULL },
-    { "GoForward", GTK_STOCK_GO_FORWARD, N_("Forward"), NULL,
+    { "GoForward", GTK_STOCK_GO_FORWARD, N_("_Forward"), "<Alt>Right",
       N_("Go forward to a previously visited commit"), NULL }
   };
 
