@@ -31,6 +31,7 @@
 #include "git-main-window.h"
 #include "git-source-view.h"
 #include "git-commit-dialog.h"
+#include "git-common.h"
 #include "intl.h"
 
 static void git_main_window_dispose (GObject *object);
@@ -399,6 +400,14 @@ git_main_window_on_quit (GtkAction *action,
 }
 
 static void
+git_main_window_about_url_hook (GtkAboutDialog *about,
+				const gchar *link_,
+				gpointer data)
+{
+  git_show_url (GTK_WIDGET (about), link_);
+}
+
+static void
 git_main_window_on_about (GtkAction *action,
 			  GitMainWindow *main_window)
 {
@@ -412,6 +421,9 @@ git_main_window_on_about (GtkAction *action,
       "Neil Roberts <bpeeluk@yahoo.co.uk>",
       NULL
     };
+  const gchar *copyright = "Copyright \xc2\xa9 2008 Neil Roberts";
+
+  gtk_about_dialog_set_url_hook (git_main_window_about_url_hook, NULL, NULL);
 
   gtk_show_about_dialog (GTK_WINDOW (main_window),
 			 "version", PACKAGE_VERSION,
@@ -421,5 +433,6 @@ git_main_window_on_about (GtkAction *action,
 			 "license", license_text,
 			 "wrap-license", TRUE,
 			 "authors", authors,
+			 "copyright", copyright,
 			 NULL);
 }
