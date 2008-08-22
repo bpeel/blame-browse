@@ -28,6 +28,9 @@
 #include <gtk/gtkstock.h>
 #include <gtk/gtkaboutdialog.h>
 #include <gtk/gtkfilechooserdialog.h>
+#include <gtk/gtkentry.h>
+#include <gtk/gtktoolbar.h>
+#include <string.h>
 
 #include "git-main-window.h"
 #include "git-source-view.h"
@@ -62,6 +65,9 @@ static void git_main_window_on_back (GtkAction *action,
 static void git_main_window_on_forward (GtkAction *action,
 					GitMainWindow *main_window);
 
+static void git_main_window_on_revision (GtkEntry *entry,
+					 GitMainWindow *main_window);
+
 G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
 #define GIT_MAIN_WINDOW_GET_PRIVATE(obj) \
@@ -70,7 +76,8 @@ G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
 struct _GitMainWindowPrivate
 {
-  GtkWidget *statusbar, *source_view, *commit_dialog, *file_dialog;
+  GtkWidget *revision_bar, *source_view, *statusbar;
+  GtkWidget *commit_dialog, *file_dialog;
 
   guint source_state_context;
   guint source_state_id;
@@ -78,6 +85,7 @@ struct _GitMainWindowPrivate
   guint commit_selected_handler;
   guint commit_response_handler;
   guint file_response_handler;
+  guint revision_activated_handler;
 
   GList *history;
   GList *history_pos;
@@ -163,8 +171,25 @@ git_main_window_init (GitMainWindow *self)
 			    FALSE, FALSE, 0);
 
       if ((widget = gtk_ui_manager_get_widget (ui_manager, "/toolbar")))
-	gtk_box_pack_start (GTK_BOX (layout), widget,
-			    FALSE, FALSE, 0);
+	{
+	  GtkToolItem *tool_item = gtk_tool_item_new ();
+
+	  gtk_box_pack_start (GTK_BOX (layout), widget,
+			      FALSE, FALSE, 0);
+
+	  priv->revision_bar = g_object_ref_sink (gtk_entry_new ());
+	  priv->revision_activated_handler
+	    = g_signal_connect (priv->revision_bar, "activate",
+				G_CALLBACK (git_main_window_on_revision),
+				self);
+	  gtk_widget_show (priv->revision_bar);
+	  gtk_container_add (GTK_CONTAINER (tool_item), priv->revision_bar);
+	  gtk_tool_item_set_expand (tool_item, TRUE);
+	  gtk_tool_item_set_tooltip_text (tool_item,
+					  _("Revision"));
+	  gtk_widget_show (GTK_WIDGET (tool_item));
+	  gtk_toolbar_insert (GTK_TOOLBAR (widget), tool_item, -1);
+	}
 
       accel_group = gtk_ui_manager_get_accel_group (ui_manager);
       gtk_window_add_accel_group (GTK_WINDOW (self), accel_group);
@@ -212,12 +237,6 @@ git_main_window_dispose (GObject *object)
   GitMainWindow *self = (GitMainWindow *) object;
   GitMainWindowPrivate *priv = self->priv;
 
-  if (priv->statusbar)
-    {
-      g_object_unref (priv->statusbar);
-      priv->statusbar = NULL;
-    }
-
   if (priv->source_view)
     {
       g_signal_handler_disconnect (priv->source_view,
@@ -226,6 +245,20 @@ git_main_window_dispose (GObject *object)
 				   priv->commit_selected_handler);
       g_object_unref (priv->source_view);
       priv->source_view = NULL;
+    }
+
+  if (priv->revision_bar)
+    {
+      g_signal_handler_disconnect (priv->revision_bar,
+				   priv->revision_activated_handler);
+      g_object_unref (priv->revision_bar);
+      priv->revision_bar = NULL;
+    }
+
+  if (priv->statusbar)
+    {
+      g_object_unref (priv->statusbar);
+      priv->statusbar = NULL;
     }
 
   if (priv->commit_dialog)
@@ -291,6 +324,10 @@ git_main_window_do_set_file (GitMainWindow *main_window,
   if (priv->source_view)
     git_source_view_set_file (GIT_SOURCE_VIEW (priv->source_view),
 			      filename, revision);
+
+  if (priv->revision_bar)
+    gtk_entry_set_text (GTK_ENTRY (priv->revision_bar),
+			revision ? revision : "");
 }
 
 static void
@@ -416,6 +453,10 @@ git_main_window_update_history_actions (GitMainWindow *main_window)
   if (priv->forward_action)
     gtk_action_set_sensitive (priv->forward_action,
 			      priv->history_pos && priv->history_pos->next);
+
+  if (priv->revision_bar)
+    gtk_widget_set_sensitive (priv->revision_bar,
+			      priv->history_pos != NULL);
 }
 
 static void
@@ -649,4 +690,21 @@ git_main_window_on_forward (GtkAction *action,
 
       git_main_window_update_history_actions (main_window);
     }
+}
+
+static void
+git_main_window_on_revision (GtkEntry *entry,
+			     GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (priv->history_pos)
+    {
+      GitMainWindowHistoryItem *item
+	= (GitMainWindowHistoryItem *) priv->history_pos->data;
+      const gchar *revision = gtk_entry_get_text (entry);
+
+      git_main_window_set_file (main_window, item->filename,
+				strlen (revision) ? revision : NULL);
+    }  
 }
