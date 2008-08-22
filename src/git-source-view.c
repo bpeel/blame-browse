@@ -43,6 +43,8 @@ static void git_source_view_size_allocate (GtkWidget *widget,
 					   GtkAllocation *allocation);
 static gboolean git_source_view_motion_notify_event (GtkWidget *widget,
 						     GdkEventMotion *event);
+static gboolean git_source_view_button_press_event (GtkWidget *widget,
+						    GdkEventButton *event);
 static gboolean git_source_view_button_release_event (GtkWidget *widget,
 						      GdkEventButton *event);
 static void git_source_view_get_property (GObject *object, guint property_id,
@@ -118,6 +120,7 @@ git_source_view_class_init (GitSourceViewClass *klass)
   widget_class->size_allocate = git_source_view_size_allocate;
   widget_class->query_tooltip = git_source_view_query_tooltip;
   widget_class->motion_notify_event = git_source_view_motion_notify_event;
+  widget_class->button_press_event = git_source_view_button_press_event;
   widget_class->button_release_event = git_source_view_button_release_event;
 
   klass->set_scroll_adjustments = git_source_view_set_scroll_adjustments;
@@ -165,7 +168,10 @@ git_source_view_init (GitSourceView *self)
 
   priv = self->priv = GIT_SOURCE_VIEW_GET_PRIVATE (self);
 
-  g_object_set (self, "has-tooltip", TRUE, NULL);
+  g_object_set (self,
+		"has-tooltip", TRUE,
+		"can-focus", TRUE,
+		NULL);
 
   priv->state = GIT_SOURCE_VIEW_READY;
   priv->state_error = NULL;
@@ -873,6 +879,15 @@ git_source_view_motion_notify_event (GtkWidget *widget,
 	  priv->hand_cursor_set = FALSE;
 	}
     }
+
+  return FALSE;
+}
+
+static gboolean
+git_source_view_button_press_event (GtkWidget *widget,
+				    GdkEventButton *event)
+{
+  gtk_widget_grab_focus (widget);
 
   return FALSE;
 }

@@ -341,12 +341,19 @@ git_main_window_set_file (GitMainWindow *main_window,
 			  const gchar *filename,
 			  const gchar *revision)
 {
+  GitMainWindowPrivate *priv;
+
   g_return_if_fail (GIT_IS_MAIN_WINDOW (main_window));
   g_return_if_fail (filename != NULL);
+
+  priv = main_window->priv;
 
   git_main_window_do_set_file (main_window, filename, revision);
   
   git_main_window_add_history (main_window, filename, revision);
+
+  if (priv->source_view)
+    gtk_widget_grab_focus (priv->source_view);
 }
 
 static void
