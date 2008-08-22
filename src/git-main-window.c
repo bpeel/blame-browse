@@ -34,20 +34,30 @@
 #include "git-common.h"
 #include "intl.h"
 
+typedef struct _GitMainWindowHistoryItem GitMainWindowHistoryItem;
+
 static void git_main_window_dispose (GObject *object);
 static void git_main_window_finalize (GObject *object);
 
 static void git_main_window_update_source_state (GitMainWindow *main_window);
+static void git_main_window_update_history_actions (GitMainWindow *main_window);
+
 static void git_main_window_on_commit_selected (GitSourceView *sview,
 						GitCommit *commit,
 						GitMainWindow *main_window);
 
 static GtkUIManager *git_main_window_create_ui_manager (void);
 
+static void git_main_window_free_history_item (GitMainWindowHistoryItem *item);
+
 static void git_main_window_on_quit (GtkAction *action,
 				     GitMainWindow *main_window);
 static void git_main_window_on_about (GtkAction *action,
 				      GitMainWindow *main_window);
+static void git_main_window_on_back (GtkAction *action,
+				     GitMainWindow *main_window);
+static void git_main_window_on_forward (GtkAction *action,
+					GitMainWindow *main_window);
 
 G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
@@ -65,7 +75,16 @@ struct _GitMainWindowPrivate
   guint commit_selected_handler;
   guint response_handler;
 
-  gchar *filename, *revision;
+  GList *history;
+  GList *history_pos;
+
+  GtkAction *back_action, *forward_action;
+};
+
+struct _GitMainWindowHistoryItem
+{
+  gchar *filename;
+  gchar *revision;
 };
 
 static GtkActionEntry
@@ -82,9 +101,11 @@ git_main_window_actions[] =
     { "HelpAbout", GTK_STOCK_ABOUT, N_("_About"), NULL,
       NULL, G_CALLBACK (git_main_window_on_about) },
     { "GoBack", GTK_STOCK_GO_BACK, N_("_Back"), "<Alt>Left",
-      N_("Go back to previously visited commit"), NULL },
+      N_("Go back to previously visited commit"),
+      G_CALLBACK (git_main_window_on_back) },
     { "GoForward", GTK_STOCK_GO_FORWARD, N_("_Forward"), "<Alt>Right",
-      N_("Go forward to a previously visited commit"), NULL }
+      N_("Go forward to a previously visited commit"),
+      G_CALLBACK (git_main_window_on_forward) },
   };
 
 static void
@@ -121,6 +142,13 @@ git_main_window_init (GitMainWindow *self)
       gtk_action_group_add_actions (action_group, git_main_window_actions,
 				    G_N_ELEMENTS (git_main_window_actions),
 				    self);
+
+      if ((priv->back_action = gtk_action_group_get_action (action_group,
+							    "GoBack")))
+	g_object_ref (priv->back_action);
+      if ((priv->forward_action = gtk_action_group_get_action (action_group,
+							       "GoForward")))
+	g_object_ref (priv->forward_action);
 
       gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
 
@@ -169,6 +197,7 @@ git_main_window_init (GitMainWindow *self)
   gtk_container_add (GTK_CONTAINER (self), layout);
 
   git_main_window_update_source_state (self);
+  git_main_window_update_history_actions (self);
 }
 
 static void
@@ -201,6 +230,17 @@ git_main_window_dispose (GObject *object)
       priv->commit_dialog = NULL;
     }
 
+  if (priv->back_action)
+    {
+      g_object_unref (priv->back_action);
+      priv->back_action = NULL;
+    }
+  if (priv->forward_action)
+    {
+      g_object_unref (priv->forward_action);
+      priv->forward_action = NULL;
+    }
+
   G_OBJECT_CLASS (git_main_window_parent_class)->dispose (object);
 }
 
@@ -210,10 +250,9 @@ git_main_window_finalize (GObject *object)
   GitMainWindow *self = (GitMainWindow *) object;
   GitMainWindowPrivate *priv = self->priv;
 
-  if (priv->filename)
-    g_free (priv->filename);
-  if (priv->revision)
-    g_free (priv->revision);
+  g_list_foreach (priv->history, (GFunc) git_main_window_free_history_item,
+		  NULL);
+  g_list_free (priv->history);
 
   G_OBJECT_CLASS (git_main_window_parent_class)->finalize (object);
 }
@@ -228,36 +267,74 @@ git_main_window_new (void)
   return self;
 }
 
-void
-git_main_window_set_file (GitMainWindow *main_window,
-			  const gchar *filename,
-			  const gchar *revision)
+static void
+git_main_window_do_set_file (GitMainWindow *main_window,
+			     const gchar *filename,
+			     const gchar *revision)
 {
   GitMainWindowPrivate *priv;
-  gchar *filename_copy, *revision_copy;
-
-  g_return_if_fail (GIT_IS_MAIN_WINDOW (main_window));
-  g_return_if_fail (filename != NULL);
 
   priv = main_window->priv;
 
   if (priv->source_view)
     git_source_view_set_file (GIT_SOURCE_VIEW (priv->source_view),
 			      filename, revision);
+}
 
-  filename_copy = g_strdup (filename);
-  if (revision)
-    revision_copy = g_strdup (revision);
+static void
+git_main_window_free_history_item (GitMainWindowHistoryItem *item)
+{
+  if (item->filename)
+    g_free (item->filename);
+  if (item->revision)
+    g_free (item->revision);
+  g_slice_free (GitMainWindowHistoryItem, item);
+}
+
+static void
+git_main_window_add_history (GitMainWindow *main_window,
+			     const gchar *filename,
+			     const gchar *revision)
+{
+  GitMainWindowPrivate *priv;
+  GitMainWindowHistoryItem *item;
+
+  priv = main_window->priv;
+
+  item = g_slice_new (GitMainWindowHistoryItem);
+  item->filename = g_strdup (filename);
+  item->revision = revision ? g_strdup (revision) : NULL;
+
+  if (priv->history_pos == NULL)
+    priv->history = priv->history_pos = g_list_prepend (NULL, item);
   else
-    revision_copy = NULL;
+    {
+      /* Destroy the forward list */
+      g_list_foreach (priv->history_pos->next,
+		      (GFunc) git_main_window_free_history_item,
+		      NULL);
+      g_list_free (priv->history_pos->next);
+      priv->history_pos->next = NULL;
 
-  if (priv->filename)
-    g_free (priv->filename);
-  if (priv->revision)
-    g_free (priv->revision);
+      priv->history_pos = g_list_append (priv->history_pos, item);
 
-  priv->filename = filename_copy;
-  priv->revision = revision_copy;
+      priv->history_pos = priv->history_pos->next;
+    }
+
+  git_main_window_update_history_actions (main_window);
+}
+
+void
+git_main_window_set_file (GitMainWindow *main_window,
+			  const gchar *filename,
+			  const gchar *revision)
+{
+  g_return_if_fail (GIT_IS_MAIN_WINDOW (main_window));
+  g_return_if_fail (filename != NULL);
+
+  git_main_window_do_set_file (main_window, filename, revision);
+  
+  git_main_window_add_history (main_window, filename, revision);
 }
 
 static void
@@ -310,19 +387,34 @@ git_main_window_update_source_state (GitMainWindow *main_window)
 }
 
 static void
+git_main_window_update_history_actions (GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (priv->back_action)
+    gtk_action_set_sensitive (priv->back_action,
+			      priv->history_pos && priv->history_pos->prev);
+  if (priv->forward_action)
+    gtk_action_set_sensitive (priv->forward_action,
+			      priv->history_pos && priv->history_pos->next);
+}
+
+static void
 git_main_window_on_response (GtkDialog *dialog, gint response,
 			     GitMainWindow *main_window)
 {
   GitMainWindowPrivate *priv = main_window->priv;
 
   if (response == GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
-      && priv->filename)
+      && priv->history_pos)
     {
       GitCommit *commit
 	= git_commit_dialog_get_commit (GIT_COMMIT_DIALOG (dialog));
+      GitMainWindowHistoryItem *item
+	= (GitMainWindowHistoryItem *) priv->history_pos->data;
      
       if (commit)
-	git_main_window_set_file (main_window, priv->filename,
+	git_main_window_set_file (main_window, item->filename,
 				  git_commit_get_hash (commit));
     }
 
@@ -435,4 +527,38 @@ git_main_window_on_about (GtkAction *action,
 			 "authors", authors,
 			 "copyright", copyright,
 			 NULL);
+}
+
+static void
+git_main_window_on_back (GtkAction *action,
+			 GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (priv->history_pos && priv->history_pos->prev)
+    {
+      GitMainWindowHistoryItem *item;
+      priv->history_pos = priv->history_pos->prev;
+      item = (GitMainWindowHistoryItem *) priv->history_pos->data;
+      git_main_window_do_set_file (main_window, item->filename, item->revision);
+
+      git_main_window_update_history_actions (main_window);
+    }
+}
+
+static void
+git_main_window_on_forward (GtkAction *action,
+			    GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (priv->history_pos && priv->history_pos->next)
+    {
+      GitMainWindowHistoryItem *item;
+      priv->history_pos = priv->history_pos->next;
+      item = (GitMainWindowHistoryItem *) priv->history_pos->data;
+      git_main_window_do_set_file (main_window, item->filename, item->revision);
+
+      git_main_window_update_history_actions (main_window);
+    }
 }
