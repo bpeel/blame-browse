@@ -29,34 +29,35 @@ int
 main (int argc, char **argv)
 {
   GtkWidget *main_win;
-  const gchar *filename, *revision;
+  const gchar *filename = NULL, *revision = NULL;
 
   g_set_application_name (_("Blame Browse"));
 
   gtk_init (&argc, &argv);
 
-  if (argc == 2)
+  if (argc > 1)
     {
-      revision = NULL;
-      filename = argv[1];
-    }
-  else if (argc == 3)
-    {
-      revision = argv[1];
-      filename = argv[2];
-    }
-  else
-    {
-      fprintf (stderr, "usage: %s [revision] <filename>\n",
-	       g_get_prgname ());
-      return 1;
+      if (argc == 2)
+	filename = argv[1];
+      else if (argc == 3)
+	{
+	  revision = argv[1];
+	  filename = argv[2];
+	}
+      else
+	{
+	  fprintf (stderr, "usage: %s [revision] [filename]\n",
+		   g_get_prgname ());
+	  return 1;
+	}
     }
 
   main_win = git_main_window_new ();
   gtk_window_set_default_size (GTK_WINDOW (main_win), 560, 460);
   g_signal_connect (main_win, "destroy", G_CALLBACK (gtk_main_quit), NULL);
 
-  git_main_window_set_file (GIT_MAIN_WINDOW (main_win), filename, revision);
+  if (filename)
+    git_main_window_set_file (GIT_MAIN_WINDOW (main_win), filename, revision);
 
   gtk_widget_show (main_win);
 
