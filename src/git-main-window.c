@@ -27,6 +27,7 @@
 #include <gtk/gtkuimanager.h>
 #include <gtk/gtkstock.h>
 #include <gtk/gtkaboutdialog.h>
+#include <gtk/gtkfilechooserdialog.h>
 
 #include "git-main-window.h"
 #include "git-source-view.h"
@@ -50,6 +51,8 @@ static GtkUIManager *git_main_window_create_ui_manager (void);
 
 static void git_main_window_free_history_item (GitMainWindowHistoryItem *item);
 
+static void git_main_window_on_open (GtkAction *action,
+				     GitMainWindow *main_window);
 static void git_main_window_on_quit (GtkAction *action,
 				     GitMainWindow *main_window);
 static void git_main_window_on_about (GtkAction *action,
@@ -67,13 +70,14 @@ G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
 
 struct _GitMainWindowPrivate
 {
-  GtkWidget *statusbar, *source_view, *commit_dialog;
+  GtkWidget *statusbar, *source_view, *commit_dialog, *file_dialog;
 
   guint source_state_context;
   guint source_state_id;
   guint source_state_handler;
   guint commit_selected_handler;
-  guint response_handler;
+  guint commit_response_handler;
+  guint file_response_handler;
 
   GList *history;
   GList *history_pos;
@@ -96,6 +100,8 @@ git_main_window_actions[] =
       NULL, NULL },
     { "Help", NULL, N_("_Help"), NULL,
       NULL, NULL },
+    { "FileOpen", GTK_STOCK_OPEN, N_("_Open"), NULL,
+      NULL, G_CALLBACK (git_main_window_on_open) },
     { "FileQuit", GTK_STOCK_QUIT, N_("_Quit"), NULL,
       NULL, G_CALLBACK (git_main_window_on_quit) },
     { "HelpAbout", GTK_STOCK_ABOUT, N_("_About"), NULL,
@@ -225,9 +231,15 @@ git_main_window_dispose (GObject *object)
   if (priv->commit_dialog)
     {
       g_signal_handler_disconnect (priv->commit_dialog,
-				   priv->response_handler);
+				   priv->commit_response_handler);
       g_object_unref (priv->commit_dialog);
       priv->commit_dialog = NULL;
+    }
+
+  if (priv->file_dialog)
+    {
+      g_object_unref (priv->file_dialog);
+      priv->file_dialog = NULL;
     }
 
   if (priv->back_action)
@@ -400,8 +412,8 @@ git_main_window_update_history_actions (GitMainWindow *main_window)
 }
 
 static void
-git_main_window_on_response (GtkDialog *dialog, gint response,
-			     GitMainWindow *main_window)
+git_main_window_on_commit_response (GtkDialog *dialog, gint response,
+				    GitMainWindow *main_window)
 {
   GitMainWindowPrivate *priv = main_window->priv;
 
@@ -438,9 +450,9 @@ git_main_window_on_commit_selected (GitSourceView *sview,
       g_signal_connect (priv->commit_dialog, "delete_event",
 			G_CALLBACK (gtk_widget_hide_on_delete), NULL);
 
-      priv->response_handler
+      priv->commit_response_handler
 	= g_signal_connect (priv->commit_dialog, "response",
-			    G_CALLBACK (git_main_window_on_response),
+			    G_CALLBACK (git_main_window_on_commit_response),
 			    main_window);
     }
 
@@ -482,6 +494,75 @@ git_main_window_create_ui_manager (void)
     }
 
   return ui_manager;
+}
+
+static void
+git_main_window_on_file_response (GtkDialog *dialog, gint response,
+				  GitMainWindow *main_window)
+{
+  if (response == GTK_RESPONSE_OK)
+    {
+      gchar *filename
+	= gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dialog));
+
+      if (filename)
+	git_main_window_set_file (main_window, filename, NULL);
+
+      g_free (filename);
+    }
+
+  gtk_widget_hide (GTK_WIDGET (dialog));
+}
+
+static void
+git_main_window_on_open (GtkAction *action,
+			 GitMainWindow *main_window)
+{
+  GitMainWindowPrivate *priv = main_window->priv;
+
+  if (priv->file_dialog == NULL)
+    {
+      priv->file_dialog
+	= gtk_file_chooser_dialog_new (_("Open File"),
+				       GTK_WINDOW (main_window),
+				       GTK_FILE_CHOOSER_ACTION_OPEN,
+				       GTK_STOCK_OK, GTK_RESPONSE_OK,
+				       NULL);
+      g_object_ref_sink (priv->file_dialog);
+
+      /* Keep the window alive when it is closed */
+      g_signal_connect (priv->file_dialog, "delete_event",
+			G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+
+      priv->file_response_handler
+	= g_signal_connect (priv->file_dialog, "response",
+			    G_CALLBACK (git_main_window_on_file_response),
+			    main_window);
+    }
+
+  if (priv->history_pos)
+    {
+      GitMainWindowHistoryItem *item
+	= (GitMainWindowHistoryItem *) priv->history_pos->data;
+      gchar *dir = g_path_get_dirname (item->filename);
+
+      if (!g_path_is_absolute (dir))
+	{
+	  gchar *current_dir = g_get_current_dir ();
+	  gchar *full_dir = g_build_filename (current_dir, dir, NULL);
+
+	  g_free (dir);
+	  dir = full_dir;
+	  g_free (current_dir);
+	}
+
+      gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (priv->file_dialog),
+					   dir);
+
+      g_free (dir);
+    }
+
+  gtk_window_present (GTK_WINDOW (priv->file_dialog));
 }
 
 static void

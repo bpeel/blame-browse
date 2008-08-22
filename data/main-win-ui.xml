@@ -21,10 +21,14 @@
  <toolbar>
   <toolitem action="GoBack" />
   <toolitem action="GoForward" />
+  <separator />
+  <toolitem action="FileOpen" />
  </toolbar>
 
  <menubar>
   <menu action="File">
+   <menuitem action="FileOpen" />
+   <separator />
    <menuitem action="FileQuit" />
   </menu>
   <menu action="Go">
