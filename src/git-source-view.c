@@ -492,7 +492,9 @@ git_source_view_expose_event (GtkWidget *widget,
 	      gint start = 0, end = G_MAXINT;
 	      PangoRectangle logical_rect;
 	      PangoRectangle start_pixel, end_pixel;
-	      GdkColor *selection_color;
+	      GdkColor *selection_color, *text_color;
+	      PangoAttrList *attrs;
+	      PangoAttribute *attr;
 
 	      pango_layout_get_pixel_extents (layout, NULL, &logical_rect);
 
@@ -502,9 +504,30 @@ git_source_view_expose_event (GtkWidget *widget,
 		end = priv->select_byte_end;
 
 	      if (GTK_WIDGET_HAS_FOCUS (widget))
-		selection_color = widget->style->base + GTK_STATE_SELECTED;
+		{
+		  selection_color = widget->style->base + GTK_STATE_SELECTED;
+		  text_color = widget->style->text + GTK_STATE_SELECTED;
+		}
 	      else
-		selection_color = widget->style->base + GTK_STATE_ACTIVE;
+		{
+		  selection_color = widget->style->base + GTK_STATE_ACTIVE;
+		  text_color = widget->style->text + GTK_STATE_ACTIVE;
+		}
+
+	      if ((attrs = pango_layout_get_attributes (layout)) == NULL)
+		attrs = pango_attr_list_new ();
+	      else
+		pango_attr_list_ref (attrs);
+
+	      attr = pango_attr_foreground_new (text_color->red,
+						text_color->green,
+						text_color->blue);
+	      attr->start_index = start;
+	      attr->end_index = end;
+	      pango_attr_list_insert (attrs, attr);
+	      pango_layout_set_attributes (layout, attrs);
+
+	      pango_attr_list_unref (attrs);
 
 	      pango_layout_index_to_pos (layout, start, &start_pixel);
 	      pango_extents_to_pixels (&start_pixel, NULL);
