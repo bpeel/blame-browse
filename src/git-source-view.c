@@ -81,6 +81,9 @@ struct _GitSourceViewPrivate
 
   GdkCursor *hand_cursor;
   gboolean hand_cursor_set;
+
+  guint select_line_start, select_byte_start;
+  guint select_line_end, select_byte_end;
 };
 
 enum
@@ -453,6 +456,8 @@ git_source_view_expose_event (GtkWidget *widget,
 	  const GitAnnotatedSourceLine *line
 	    = git_annotated_source_get_line (priv->paint_source, line_num);
 	  GdkColor color;
+	  gint line_text_x;
+
 	  y = line_num * priv->line_height - priv->y_offset;
 
 	  git_source_view_set_text_for_commit (layout, line->commit);
@@ -478,6 +483,47 @@ git_source_view_expose_event (GtkWidget *widget,
 
 	  git_source_view_set_text_for_line (layout, line);
 
+	  line_text_x = -priv->x_offset + priv->max_hash_length
+	    + GIT_SOURCE_VIEW_GAP;
+
+	  if (line_num >= priv->select_line_start
+	      && line_num <= priv->select_line_end)
+	    {
+	      gint start = 0, end = G_MAXINT;
+	      PangoRectangle logical_rect;
+	      PangoRectangle start_pixel, end_pixel;
+	      GdkColor *selection_color;
+
+	      pango_layout_get_pixel_extents (layout, NULL, &logical_rect);
+
+	      if (line_num == priv->select_line_start)
+		start = priv->select_byte_start;
+	      if (line_num == priv->select_line_end)
+		end = priv->select_byte_end;
+
+	      if (GTK_WIDGET_HAS_FOCUS (widget))
+		selection_color = widget->style->base + GTK_STATE_SELECTED;
+	      else
+		selection_color = widget->style->base + GTK_STATE_ACTIVE;
+
+	      pango_layout_index_to_pos (layout, start, &start_pixel);
+	      pango_extents_to_pixels (&start_pixel, NULL);
+	      pango_layout_index_to_pos (layout, end, &end_pixel);
+	      pango_extents_to_pixels (&end_pixel, NULL);
+
+	      cairo_save (cr);
+	      cairo_set_source_rgb (cr, selection_color->red / 65535.0,
+				    selection_color->green / 65535.0,
+				    selection_color->blue / 65535.0);
+
+	      cairo_rectangle (cr, start_pixel.x + line_text_x, y,
+			       end_pixel.x - start_pixel.x,
+			       logical_rect.height);
+	      cairo_fill (cr);
+
+	      cairo_restore (cr);
+	    }
+
 	  clip_rect.x = priv->max_hash_length + GIT_SOURCE_VIEW_GAP;
 	  clip_rect.width = widget->allocation.width;
 	  clip_rect.y = y;
@@ -490,8 +536,7 @@ git_source_view_expose_event (GtkWidget *widget,
 			    &clip_rect,
 			    widget,
 			    NULL,
-			    -priv->x_offset + priv->max_hash_length
-			    + GIT_SOURCE_VIEW_GAP,
+			    line_text_x,
 			    y,
 			    layout);
 	}
