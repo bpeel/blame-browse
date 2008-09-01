@@ -82,6 +82,7 @@ struct _GitSourceViewPrivate
   GdkCursor *hand_cursor;
   gboolean hand_cursor_set;
 
+  guint select_line_anchor, select_byte_anchor;
   guint select_line_start, select_byte_start;
   guint select_line_end, select_byte_end;
 };
@@ -906,6 +907,64 @@ git_source_view_get_state_error (GitSourceView *sview)
   return sview->priv->state_error;
 }
 
+static void
+git_source_view_get_text_point (GitSourceView *sview,
+				gdouble x,
+				gdouble y,
+				guint *line_num,
+				guint *byte)
+{
+  GitSourceViewPrivate *priv = sview->priv;
+  gsize n_lines = 0;
+
+  if (priv->paint_source)
+    n_lines = git_annotated_source_get_n_lines (priv->paint_source);
+
+  if (priv->line_height <= 0 || y < 0.0)
+    {
+      *line_num = 0;
+      *byte = 0;
+    }
+  else if ((*line_num = (guint) y / priv->line_height) >= n_lines
+	   || priv->paint_source == NULL)
+    *byte = 0;
+  else
+    {
+      const GitAnnotatedSourceLine *line;
+      PangoLayout *layout;
+      int index, trailing, line_text_x;
+
+      layout = gtk_widget_create_pango_layout (GTK_WIDGET (sview), NULL);
+
+      line = git_annotated_source_get_line (priv->paint_source, *line_num);
+      git_source_view_set_text_for_line (layout, line);
+      line_text_x = -priv->x_offset + priv->max_hash_length
+	+ GIT_SOURCE_VIEW_GAP;
+      pango_layout_xy_to_index (layout, (x - line_text_x) * PANGO_SCALE, 0,
+				&index, &trailing);
+
+      *byte = index;
+
+      g_object_unref (layout);
+    }
+}
+
+static void
+git_source_view_set_selection (GitSourceView *sview,
+			       guint line_start, guint byte_start,
+			       guint line_end, guint byte_end)
+{
+  GitSourceViewPrivate *priv = sview->priv;
+
+  priv->select_line_start = line_start;
+  priv->select_byte_start = byte_start;
+  priv->select_line_end = line_end;
+  priv->select_byte_end = byte_end;
+
+  if (GTK_WIDGET_REALIZED (GTK_WIDGET (sview)))
+    gdk_window_invalidate_rect (GTK_WIDGET (sview)->window, NULL, FALSE);
+}
+
 static gboolean
 git_source_view_motion_notify_event (GtkWidget *widget,
 				     GdkEventMotion *event)
@@ -948,6 +1007,25 @@ git_source_view_motion_notify_event (GtkWidget *widget,
 	}
     }
 
+  if ((event->state & GDK_BUTTON1_MASK))
+    {
+      guint line, byte;
+
+      git_source_view_get_text_point (sview, event->x, event->y,
+				      &line, &byte);
+
+      if (line < priv->select_line_anchor
+	  || (line == priv->select_line_anchor
+	      && byte < priv->select_byte_anchor))
+	git_source_view_set_selection (sview, line, byte,
+				       priv->select_line_anchor,
+				       priv->select_byte_anchor);
+      else
+	git_source_view_set_selection (sview, priv->select_line_anchor,
+				       priv->select_byte_anchor,
+				       line, byte);
+    }
+
   return FALSE;
 }
 
@@ -955,7 +1033,18 @@ static gboolean
 git_source_view_button_press_event (GtkWidget *widget,
 				    GdkEventButton *event)
 {
+  GitSourceView *sview = (GitSourceView *) widget;
+  GitSourceViewPrivate *priv = sview->priv;
+  guint line, byte;
+
   gtk_widget_grab_focus (widget);
+
+  git_source_view_get_text_point (sview, event->x, event->y,
+				  &line, &byte);
+
+  priv->select_line_anchor = line;
+  priv->select_byte_anchor = byte;
+  git_source_view_set_selection (sview, line, byte, line, byte);
 
   return FALSE;
 }
