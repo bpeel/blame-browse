@@ -36,15 +36,8 @@ static void git_source_view_dispose (GObject *object);
 static void git_source_view_realize (GtkWidget *widget);
 static gboolean git_source_view_expose_event (GtkWidget *widget,
 					      GdkEventExpose *event);
-static void git_source_view_set_scroll_adjustments (GtkWidget *widget,
-						    GtkAdjustment *hadjustment,
-						    GtkAdjustment *vadjustment);
-static void git_source_view_size_allocate (GtkWidget *widget,
-					   GtkAllocation *allocation);
 static gboolean git_source_view_motion_notify_event (GtkWidget *widget,
 						     GdkEventMotion *event);
-static gboolean git_source_view_button_press_event (GtkWidget *widget,
-						    GdkEventButton *event);
 static gboolean git_source_view_button_release_event (GtkWidget *widget,
 						      GdkEventButton *event);
 static void git_source_view_get_property (GObject *object, guint property_id,
@@ -55,7 +48,7 @@ static gboolean git_source_view_query_tooltip (GtkWidget *widget,
 					       gboolean keyboard_tooltip,
 					       GtkTooltip *tooltip);
 
-G_DEFINE_TYPE (GitSourceView, git_source_view, GTK_TYPE_WIDGET);
+G_DEFINE_TYPE (GitSourceView, git_source_view, GTK_TYPE_SOURCE_VIEW);
 
 #define GIT_SOURCE_VIEW_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_SOURCE_VIEW, \
@@ -68,12 +61,6 @@ struct _GitSourceViewPrivate
 
   guint line_height, max_line_width, max_hash_length;
 
-  GtkAdjustment *hadjustment, *vadjustment;
-  guint hadjustment_value_changed_handler;
-  guint vadjustment_value_changed_handler;
-  guint hadjustment_changed_handler;
-  guint vadjustment_changed_handler;
-
   GitSourceViewState state;
   GError *state_error;
   
@@ -85,7 +72,6 @@ struct _GitSourceViewPrivate
 
 enum
   {
-    SET_SCROLL_ADJUSTMENTS,
     COMMIT_SELECTED,
 
     LAST_SIGNAL
@@ -117,13 +103,9 @@ git_source_view_class_init (GitSourceViewClass *klass)
 
   widget_class->realize = git_source_view_realize;
   widget_class->expose_event = git_source_view_expose_event;
-  widget_class->size_allocate = git_source_view_size_allocate;
   widget_class->query_tooltip = git_source_view_query_tooltip;
   widget_class->motion_notify_event = git_source_view_motion_notify_event;
-  widget_class->button_press_event = git_source_view_button_press_event;
   widget_class->button_release_event = git_source_view_button_release_event;
-
-  klass->set_scroll_adjustments = git_source_view_set_scroll_adjustments;
 
   pspec = g_param_spec_enum ("state",
 			     "State",
@@ -133,20 +115,6 @@ git_source_view_class_init (GitSourceViewClass *klass)
 			     GIT_SOURCE_VIEW_READY,
 			     G_PARAM_READABLE);
   g_object_class_install_property (gobject_class, PROP_STATE, pspec);
-
-  client_signals[SET_SCROLL_ADJUSTMENTS]
-    = g_signal_new ("set_scroll_adjustments",
-		    G_OBJECT_CLASS_TYPE (gobject_class),
-		    G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION,
-		    G_STRUCT_OFFSET (GitSourceViewClass,
-				     set_scroll_adjustments),
-		    NULL, NULL,
-		    _git_marshal_VOID__OBJECT_OBJECT,
-		    G_TYPE_NONE, 2,
-		    GTK_TYPE_ADJUSTMENT,
-		    GTK_TYPE_ADJUSTMENT);
-  widget_class->set_scroll_adjustments_signal
-    = client_signals[SET_SCROLL_ADJUSTMENTS];
 
   client_signals[COMMIT_SELECTED]
     = g_signal_new ("commit-selected",
@@ -192,38 +160,6 @@ git_source_view_unref_loading_source (GitSourceView *sview)
 }
 
 static void
-git_source_view_unref_hadjustment (GitSourceView *sview)
-{
-  GitSourceViewPrivate *priv = sview->priv;
-
-  if (priv->hadjustment)
-    {
-      g_signal_handler_disconnect (priv->hadjustment,
-				   priv->hadjustment_value_changed_handler);
-      g_signal_handler_disconnect (priv->hadjustment,
-				   priv->hadjustment_changed_handler);
-      g_object_unref (priv->hadjustment);
-      priv->hadjustment = NULL;
-    }
-}
-
-static void
-git_source_view_unref_vadjustment (GitSourceView *sview)
-{
-  GitSourceViewPrivate *priv = sview->priv;
-
-  if (priv->vadjustment)
-    {
-      g_signal_handler_disconnect (priv->vadjustment,
-				   priv->vadjustment_value_changed_handler);
-      g_signal_handler_disconnect (priv->vadjustment,
-				   priv->vadjustment_changed_handler);
-      g_object_unref (priv->vadjustment);
-      priv->vadjustment = NULL;
-    }
-}
-
-static void
 git_source_view_dispose (GObject *object)
 {
   GitSourceView *self = (GitSourceView *) object;
@@ -234,9 +170,6 @@ git_source_view_dispose (GObject *object)
       g_object_unref (priv->paint_source);
       priv->paint_source = NULL;
     }
-
-  git_source_view_unref_hadjustment (self);
-  git_source_view_unref_vadjustment (self);
 
   git_source_view_unref_loading_source (self);
 
@@ -291,53 +224,6 @@ git_source_view_set_text_for_commit (PangoLayout *layout, GitCommit *commit)
 }
 
 static void
-git_source_view_update_scroll_adjustments (GitSourceView *sview)
-{
-  GitSourceViewPrivate *priv = sview->priv;
-  GtkWidget *widget = (GtkWidget *) sview;
-  gsize n_lines = 0;
-
-  if (priv->paint_source)
-    n_lines = git_annotated_source_get_n_lines (priv->paint_source);
-
-  if (priv->hadjustment)
-    {
-      priv->hadjustment->lower = 0.0;
-      priv->hadjustment->upper = priv->max_line_width;
-      priv->hadjustment->step_increment = 10.0;
-      priv->hadjustment->page_increment = widget->allocation.width;
-      priv->hadjustment->page_size = widget->allocation.width
-	- priv->max_hash_length - GIT_SOURCE_VIEW_GAP;
-
-      if (priv->hadjustment->value + priv->hadjustment->page_size
-	  > priv->hadjustment->upper)
-	priv->hadjustment->value
-	  = priv->hadjustment->upper - priv->hadjustment->page_size;
-      if (priv->hadjustment->value < 0.0)
-	priv->hadjustment->value = 0.0;
-
-      gtk_adjustment_changed (priv->hadjustment);
-    }
-  if (priv->vadjustment)
-    {
-      priv->vadjustment->lower = 0.0;
-      priv->vadjustment->upper = priv->line_height * n_lines;
-      priv->vadjustment->step_increment = priv->line_height;
-      priv->vadjustment->page_increment = widget->allocation.height;
-      priv->vadjustment->page_size = widget->allocation.height;
-
-      if (priv->vadjustment->value + priv->vadjustment->page_size
-	  > priv->vadjustment->upper)
-	priv->vadjustment->value
-	  = priv->vadjustment->upper - priv->vadjustment->page_size;
-      if (priv->vadjustment->value < 0.0)
-	priv->vadjustment->value = 0.0;
-
-      gtk_adjustment_changed (priv->vadjustment);
-    }
-}
-
-static void
 git_source_view_calculate_line_height (GitSourceView *sview)
 {
   GitSourceViewPrivate *priv = sview->priv;
@@ -380,42 +266,13 @@ git_source_view_calculate_line_height (GitSourceView *sview)
       priv->max_hash_length = max_hash_length + GIT_SOURCE_VIEW_GAP * 2;
 
       g_object_unref (layout);
-
-      git_source_view_update_scroll_adjustments (sview);
     }
 }
 
 static void
 git_source_view_realize (GtkWidget *widget)
 {
-  GdkWindowAttr attribs;
-
-  GTK_WIDGET_SET_FLAGS (widget, GTK_REALIZED);
-
-  memset (&attribs, 0, sizeof (attribs));
-  attribs.x = widget->allocation.x;
-  attribs.y = widget->allocation.y;
-  attribs.width = widget->allocation.width;
-  attribs.height = widget->allocation.height;
-  attribs.wclass = GDK_INPUT_OUTPUT;
-  attribs.window_type = GDK_WINDOW_CHILD;
-  attribs.visual = gtk_widget_get_visual (widget);
-  attribs.colormap = gtk_widget_get_colormap (widget);
-  attribs.event_mask = gtk_widget_get_events (widget)
-    | GDK_EXPOSURE_MASK | GDK_POINTER_MOTION_MASK
-    | GDK_LEAVE_NOTIFY_MASK | GDK_ENTER_NOTIFY_MASK
-    | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK;
-
-  widget->window = gdk_window_new (gtk_widget_get_parent_window (widget),
-				   &attribs,
-				   GDK_WA_X | GDK_WA_Y
-				   | GDK_WA_VISUAL | GDK_WA_COLORMAP);
-
-  gdk_window_set_user_data (widget->window, widget);
-  widget->style = gtk_style_attach (widget->style, widget->window);
-
-  gdk_window_set_background (widget->window,
-			     &widget->style->base[GTK_WIDGET_STATE (widget)]);
+  ((GtkWidgetClass *) git_source_view_parent_class)->realize (widget);
 
   git_source_view_calculate_line_height (GIT_SOURCE_VIEW (widget));
 }
@@ -430,6 +287,10 @@ git_source_view_expose_event (GtkWidget *widget,
   gint y;
   PangoLayout *layout;
   cairo_t *cr;
+
+  /* STUB, just chain up */
+  return ((GtkWidgetClass *) git_source_view_parent_class)
+    ->expose_event (widget, event);
 
   if (priv->paint_source && priv->line_height)
     {
@@ -503,110 +364,6 @@ git_source_view_expose_event (GtkWidget *widget,
   return FALSE;
 }
 
-static void
-git_source_view_on_adj_changed (GtkAdjustment *adj, GitSourceView *sview)
-{
-  GitSourceViewPrivate *priv = sview->priv;
-
-  if (priv->hadjustment)
-    priv->x_offset = priv->hadjustment->value;
-  if (priv->vadjustment)
-    priv->y_offset = priv->vadjustment->value;
-
-  if (GTK_WIDGET_REALIZED (GTK_WIDGET (sview)))
-    gdk_window_invalidate_rect (GTK_WIDGET (sview)->window, NULL, FALSE);
-}
-
-static void
-git_source_view_on_adj_value_changed (GtkAdjustment *adj, GitSourceView *sview)
-{
-  GitSourceViewPrivate *priv = sview->priv;
-  gint dx = 0, dy = 0;
-
-  if (priv->hadjustment)
-    {
-      gint new_offset = (gint) priv->hadjustment->value;
-      dx = priv->x_offset - new_offset;
-      priv->x_offset = new_offset;
-    }
-  if (priv->vadjustment)
-    {
-      gint new_offset = (gint) priv->vadjustment->value;
-      dy = priv->y_offset - new_offset;
-      priv->y_offset = new_offset;
-    }
-
-  if (GTK_WIDGET_REALIZED (GTK_WIDGET (sview)))
-    {
-      /* If dx has changed then we have to redraw the whole window
-	 because the commit hashes on the left side shouldn't
-	 scroll */
-      if (dx)
-	gdk_window_invalidate_rect (GTK_WIDGET (sview)->window, NULL, FALSE);
-      else if (dy)
-	gdk_window_scroll (GTK_WIDGET (sview)->window, dx, dy);
-    }
-}
-
-static void
-git_source_view_set_scroll_adjustments (GtkWidget *widget,
-					GtkAdjustment *hadjustment,
-					GtkAdjustment *vadjustment)
-{
-  GitSourceView *sview = (GitSourceView *) widget;
-  GitSourceViewPrivate *priv = sview->priv;
-
-  if (hadjustment)
-    g_return_if_fail (GTK_IS_ADJUSTMENT (hadjustment));
-  else
-    hadjustment
-      = GTK_ADJUSTMENT (gtk_adjustment_new (0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-  if (vadjustment)
-    g_return_if_fail (GTK_IS_ADJUSTMENT (vadjustment));
-  else
-    vadjustment
-      = GTK_ADJUSTMENT (gtk_adjustment_new (0.0, 0.0, 0.0, 0.0, 0.0, 0.0));  
-
-  g_object_ref_sink (hadjustment);
-  g_object_ref_sink (vadjustment);
-
-  git_source_view_unref_hadjustment (sview);
-  priv->hadjustment = hadjustment;
-  priv->hadjustment_changed_handler
-    = g_signal_connect (hadjustment, "changed",
-			G_CALLBACK (git_source_view_on_adj_changed),
-			sview);
-  priv->hadjustment_value_changed_handler
-    = g_signal_connect (hadjustment, "value-changed",
-			G_CALLBACK (git_source_view_on_adj_value_changed),
-			sview);
-
-  git_source_view_unref_vadjustment (sview);
-  priv->vadjustment = vadjustment;
-  priv->vadjustment_changed_handler
-    = g_signal_connect (vadjustment, "changed",
-			G_CALLBACK (git_source_view_on_adj_changed),
-			sview);
-  priv->vadjustment_value_changed_handler
-    = g_signal_connect (vadjustment, "value-changed",
-			G_CALLBACK (git_source_view_on_adj_value_changed),
-			sview);
-
-
-  git_source_view_update_scroll_adjustments (sview);
-}
-
-static void
-git_source_view_size_allocate (GtkWidget *widget,
-			       GtkAllocation *allocation)
-{
-  /* Chain up */
-  GTK_WIDGET_CLASS (git_source_view_parent_class)
-    ->size_allocate (widget, allocation);
-
-  git_source_view_update_scroll_adjustments (GIT_SOURCE_VIEW (widget));
-}
-
 static gboolean
 git_source_view_query_tooltip (GtkWidget *widget,
 			       gint x, gint y,
@@ -622,6 +379,10 @@ git_source_view_query_tooltip (GtkWidget *widget,
   gchar *part_markup;
   const GitAnnotatedSourceLine *line;
   GitCommit *commit;
+
+  /* STUB, just chain up */
+  return ((GtkWidgetClass *) git_source_view_parent_class)
+    ->query_tooltip (widget, x, y, keyboard_tooltip, tooltip);
 
   if (priv->line_height < 1 || priv->paint_source == NULL)
     return FALSE;
@@ -780,7 +541,6 @@ git_source_view_on_completed (GitAnnotatedSource *source,
       git_source_view_calculate_line_height (sview);
 
       gdk_window_invalidate_rect (GTK_WIDGET (sview)->window, NULL, FALSE);
-      git_source_view_update_scroll_adjustments (sview);
 
       git_source_view_set_state (sview, GIT_SOURCE_VIEW_READY, NULL);
     }
@@ -846,6 +606,10 @@ git_source_view_motion_notify_event (GtkWidget *widget,
   GitSourceViewPrivate *priv = sview->priv;
   gboolean show_cursor = FALSE;
 
+  /* STUB, just chain up */
+  return ((GtkWidgetClass *) git_source_view_parent_class)
+    ->motion_notify_event (widget, event);
+
   /* Show the hand cursor when the pointer is over a commit hash */
   if (priv->paint_source)
     {
@@ -884,20 +648,15 @@ git_source_view_motion_notify_event (GtkWidget *widget,
 }
 
 static gboolean
-git_source_view_button_press_event (GtkWidget *widget,
-				    GdkEventButton *event)
-{
-  gtk_widget_grab_focus (widget);
-
-  return FALSE;
-}
-
-static gboolean
 git_source_view_button_release_event (GtkWidget *widget,
 				      GdkEventButton *event)
 {
   GitSourceView *sview = (GitSourceView *) widget;
   GitSourceViewPrivate *priv = sview->priv;
+
+  /* STUB, just chain up */
+  return ((GtkWidgetClass *) git_source_view_parent_class)
+    ->button_release_event (widget, event);
 
   if (priv->paint_source && priv->line_height > 0)
     {

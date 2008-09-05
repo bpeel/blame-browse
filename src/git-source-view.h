@@ -19,7 +19,7 @@
 #define __GIT_SOURCE_VIEW_H__
 
 #include <gtk/gtkwidget.h>
-#include <gtk/gtkadjustment.h>
+#include <gtksourceview/gtksourceview.h>
 #include "git-commit.h"
 
 G_BEGIN_DECLS
@@ -51,18 +51,15 @@ typedef struct _GitSourceViewPrivate GitSourceViewPrivate;
 
 struct _GitSourceViewClass
 {
-  GtkWidgetClass parent_class;
+  GtkSourceViewClass parent_class;
 
-  void (* set_scroll_adjustments) (GtkWidget *widget,
-				   GtkAdjustment *hadjustment,
-				   GtkAdjustment *vadjustment);
   void (* commit_selected) (GitSourceView *source_view,
 			    GitCommit *commit);
 };
 
 struct _GitSourceView
 {
-  GtkWidget parent;
+  GtkSourceView parent;
 
   GitSourceViewPrivate *priv;
 };
