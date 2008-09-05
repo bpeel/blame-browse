@@ -530,11 +530,30 @@ git_source_view_on_completed (GitAnnotatedSource *source,
     git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
   else
     {
+      int line_num;
+      gsize n_lines;
+      const GitAnnotatedSourceLine *line;
+      GtkTextBuffer *text_buffer;
+      GtkTextIter iter;
+
       /* Forget the old painting source */
       if (priv->paint_source)
 	g_object_unref (priv->paint_source);
       /* Use the loading source to paint with */
       priv->paint_source = g_object_ref (source);
+
+      /* Replace the text in the source view with the new lines */
+      text_buffer = gtk_text_view_get_buffer (GTK_TEXT_VIEW (sview));
+      gtk_text_buffer_set_text (text_buffer, "", 0);
+      gtk_text_buffer_get_iter_at_offset (text_buffer, &iter, -1);
+
+      n_lines = git_annotated_source_get_n_lines (source);
+      for (line_num = 0; line_num < n_lines; line_num++)
+	{
+	  line = git_annotated_source_get_line (source, line_num);
+
+	  gtk_text_buffer_insert (text_buffer, &iter, line->text, -1);
+	}
 
       /* Recalculate the line height */
       priv->line_height = 0;
