@@ -5,7 +5,9 @@ AC_INIT([blame-browse], 0.1)
 AC_CONFIG_SRCDIR([src/main.c])
 AM_CONFIG_HEADER([config.h])
 
-AM_INIT_AUTOMAKE([1.9])
+AM_INIT_AUTOMAKE([1.11])
+
+AM_SILENT_RULES([yes])
 
 dnl ========================================================================
 
