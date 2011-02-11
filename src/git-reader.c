@@ -35,13 +35,13 @@
 static void git_reader_dispose (GObject *object);
 static void git_reader_finalize (GObject *object);
 static gboolean git_reader_default_line (GitReader *reader,
-					 guint length, const gchar *string);
+                                         guint length, const gchar *string);
 
 G_DEFINE_TYPE (GitReader, git_reader, G_TYPE_OBJECT);
 
 #define GIT_READER_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_READER, \
-				GitReaderPrivate))
+                                GitReaderPrivate))
 
 struct _GitReaderPrivate
 {
@@ -78,24 +78,24 @@ git_reader_class_init (GitReaderClass *klass)
 
   client_signals[COMPLETED]
     = g_signal_new ("completed",
-		    G_TYPE_FROM_CLASS (gobject_class),
-		    G_SIGNAL_RUN_LAST,
-		    G_STRUCT_OFFSET (GitReaderClass, completed),
-		    NULL, NULL,
-		    g_cclosure_marshal_VOID__POINTER,
-		    G_TYPE_NONE, 1,
-		    G_TYPE_POINTER);
+                    G_TYPE_FROM_CLASS (gobject_class),
+                    G_SIGNAL_RUN_LAST,
+                    G_STRUCT_OFFSET (GitReaderClass, completed),
+                    NULL, NULL,
+                    g_cclosure_marshal_VOID__POINTER,
+                    G_TYPE_NONE, 1,
+                    G_TYPE_POINTER);
 
   client_signals[LINE]
     = g_signal_new ("line",
-		    G_TYPE_FROM_CLASS (gobject_class),
-		    G_SIGNAL_RUN_LAST,
-		    G_STRUCT_OFFSET (GitReaderClass, line),
-		    _git_boolean_continue_accumulator, NULL,
-		    _git_marshal_BOOLEAN__UINT_STRING,
-		    G_TYPE_BOOLEAN, 2,
-		    G_TYPE_UINT,
-		    G_TYPE_STRING);
+                    G_TYPE_FROM_CLASS (gobject_class),
+                    G_SIGNAL_RUN_LAST,
+                    G_STRUCT_OFFSET (GitReaderClass, line),
+                    _git_boolean_continue_accumulator, NULL,
+                    _git_marshal_BOOLEAN__UINT_STRING,
+                    G_TYPE_BOOLEAN, 2,
+                    G_TYPE_UINT,
+                    G_TYPE_STRING);
 
   g_type_class_add_private (klass, sizeof (GitReaderPrivate));
 }
@@ -113,7 +113,7 @@ git_reader_init (GitReader *self)
 
 static void
 git_reader_close_process (GitReader *source,
-			  gboolean kill_child)
+                          gboolean kill_child)
 {
   GitReaderPrivate *priv = source->priv;
 
@@ -122,9 +122,9 @@ git_reader_close_process (GitReader *source,
       priv->has_child = FALSE;
 
       if (priv->child_stdout_source)
-	g_source_remove (priv->child_stdout_source);
+        g_source_remove (priv->child_stdout_source);
       if (priv->child_stderr_source)
-	g_source_remove (priv->child_stderr_source);
+        g_source_remove (priv->child_stderr_source);
 
       g_io_channel_shutdown (priv->child_stdout, FALSE, NULL);
       g_io_channel_unref (priv->child_stdout);
@@ -132,33 +132,33 @@ git_reader_close_process (GitReader *source,
       g_io_channel_unref (priv->child_stderr);
 
       if (priv->child_pid)
-	{
-	  if (kill_child)
-	    {
-	      int status_ret, wait_ret;
+        {
+          if (kill_child)
+            {
+              int status_ret, wait_ret;
 
-	      g_source_remove (priv->child_watch_source);
+              g_source_remove (priv->child_watch_source);
 
-	      /* Check if the process has already terminated */
-	      while ((wait_ret = waitpid (priv->child_pid, &status_ret,
-					  WNOHANG)) == -1
-		     && errno == EINTR);
+              /* Check if the process has already terminated */
+              while ((wait_ret = waitpid (priv->child_pid, &status_ret,
+                                          WNOHANG)) == -1
+                     && errno == EINTR);
 
-	      /* Otherwise try killing it */
-	      if (wait_ret == 0)
-		{
-		  kill (priv->child_pid, SIGTERM);
+              /* Otherwise try killing it */
+              if (wait_ret == 0)
+                {
+                  kill (priv->child_pid, SIGTERM);
 
-		  while ((wait_ret = waitpid (priv->child_pid, &status_ret,
-					      0)) == -1
-			 && errno == EINTR);
-		}	  
-	    }
+                  while ((wait_ret = waitpid (priv->child_pid, &status_ret,
+                                              0)) == -1
+                         && errno == EINTR);
+                }
+            }
 
-	  priv->child_pid = 0;
-	  g_spawn_close_pid (priv->child_pid);
-	}
-    }  
+          priv->child_pid = 0;
+          g_spawn_close_pid (priv->child_pid);
+        }
+    }
 }
 
 static void
@@ -184,7 +184,7 @@ git_reader_finalize (GObject *object)
 
 static gboolean
 git_reader_default_line (GitReader *reader,
-			 guint length, const gchar *string)
+                         guint length, const gchar *string)
 {
   /* Don't do anything but continue emission */
   return TRUE;
@@ -212,45 +212,45 @@ git_reader_check_complete (GitReader *reader)
       gboolean line_return = TRUE;
 
       /* If there's any data left in the line buffer then it
-	 represents a line with no terminator but it will probably
-	 still want to be handled so we should emit the signal */
+         represents a line with no terminator but it will probably
+         still want to be handled so we should emit the signal */
       if (priv->line_string->len > 0)
-	g_signal_emit (reader, client_signals[LINE], 0,
-		       priv->line_string->len, priv->line_string->str,
-		       &line_return);
+        g_signal_emit (reader, client_signals[LINE], 0,
+                       priv->line_string->len, priv->line_string->str,
+                       &line_return);
 
       git_reader_close_process (reader, FALSE);
 
       /* Don't fire the completed signal if line signal halted
-	 processing */
+         processing */
       if (line_return)
-	{
-	  GError *error = NULL;
+        {
+          GError *error = NULL;
 
-	  if (priv->child_exit_code)
-	    {
-	      gssize len;
+          if (priv->child_exit_code)
+            {
+              gssize len;
 
-	      /* Remove spaces at the end of the error string */
-	      for (len = priv->error_string->len;
-		   len > 0 && isspace (priv->error_string->str[len - 1]);
-		   len--);
-	      g_string_truncate (priv->error_string, len);
+              /* Remove spaces at the end of the error string */
+              for (len = priv->error_string->len;
+                   len > 0 && isspace (priv->error_string->str[len - 1]);
+                   len--);
+              g_string_truncate (priv->error_string, len);
 
-	      if (len > 0)
-		g_set_error (&error, GIT_ERROR, GIT_ERROR_EXIT_STATUS,
-			     "Error invoking git: %s",
-			     priv->error_string->str);
-	      else
-		g_set_error (&error, GIT_ERROR, GIT_ERROR_EXIT_STATUS,
-			     "Error invoking git");
-	    }
+              if (len > 0)
+                g_set_error (&error, GIT_ERROR, GIT_ERROR_EXIT_STATUS,
+                             "Error invoking git: %s",
+                             priv->error_string->str);
+              else
+                g_set_error (&error, GIT_ERROR, GIT_ERROR_EXIT_STATUS,
+                             "Error invoking git");
+            }
 
-	  g_signal_emit (reader, client_signals[COMPLETED], 0, error);
+          g_signal_emit (reader, client_signals[COMPLETED], 0, error);
 
-	  if (error)
-	    g_error_free (error);
-	}
+          if (error)
+            g_error_free (error);
+        }
     }
 
   g_object_unref (reader);
@@ -270,17 +270,17 @@ git_reader_check_lines (GitReader *reader)
   while ((end = memchr (start, '\n', len)))
     {
       g_signal_emit (reader, client_signals[LINE], 0,
-		     end - start + 1, start, &line_return);
+                     end - start + 1, start, &line_return);
 
       len -= end - start + 1;
       start = end + 1;
 
       if (!line_return)
-	{
-	  git_reader_close_process (reader, TRUE);
-	  ret = FALSE;
-	  break;
-	}
+        {
+          git_reader_close_process (reader, TRUE);
+          ret = FALSE;
+          break;
+        }
     }
 
   /* Move the remaining incomplete line to the beginning of the
@@ -319,7 +319,7 @@ git_reader_on_read_error (GitReader *reader, GError *error)
 
 static gboolean
 git_reader_on_child_stdout (GIOChannel *io_source,
-			    GIOCondition condition, gpointer data)
+                            GIOCondition condition, gpointer data)
 {
   GitReader *reader = (GitReader *) data;
   GitReaderPrivate *priv = reader->priv;
@@ -329,7 +329,7 @@ git_reader_on_child_stdout (GIOChannel *io_source,
   gboolean ret = TRUE;
 
   switch (g_io_channel_read_chars (io_source, buf, sizeof (buf),
-				   &bytes_read, &error))
+                                   &bytes_read, &error))
     {
     case G_IO_STATUS_ERROR:
       git_reader_on_read_error (reader, error);
@@ -346,7 +346,7 @@ git_reader_on_child_stdout (GIOChannel *io_source,
       git_reader_check_complete (reader);
       ret = FALSE;
       break;
-      
+
     case G_IO_STATUS_AGAIN:
       break;
     }
@@ -356,7 +356,7 @@ git_reader_on_child_stdout (GIOChannel *io_source,
 
 static gboolean
 git_reader_on_child_stderr (GIOChannel *io_source,
-			    GIOCondition condition, gpointer data)
+                            GIOCondition condition, gpointer data)
 {
   GitReader *reader = (GitReader *) data;
   GitReaderPrivate *priv = reader->priv;
@@ -366,7 +366,7 @@ git_reader_on_child_stderr (GIOChannel *io_source,
   gboolean ret = TRUE;
 
   switch (g_io_channel_read_chars (io_source, buf, sizeof (buf),
-				   &bytes_read, &error))
+                                   &bytes_read, &error))
     {
     case G_IO_STATUS_ERROR:
       git_reader_on_read_error (reader, error);
@@ -382,7 +382,7 @@ git_reader_on_child_stderr (GIOChannel *io_source,
       git_reader_check_complete (reader);
       ret = FALSE;
       break;
-      
+
     case G_IO_STATUS_AGAIN:
       break;
     }
@@ -392,9 +392,9 @@ git_reader_on_child_stderr (GIOChannel *io_source,
 
 gboolean
 git_reader_start (GitReader *reader,
-		  const gchar *working_directory,
-		  GError **error,
-		  ...)
+                  const gchar *working_directory,
+                  GError **error,
+                  ...)
 {
   GitReaderPrivate *priv;
   gchar **args;
@@ -403,7 +403,7 @@ git_reader_start (GitReader *reader,
   gint stdout_fd, stderr_fd;
   va_list ap_copy, ap;
   int argc = 1, i;
-  
+
   g_return_val_if_fail (GIT_IS_READER (reader), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
@@ -428,11 +428,11 @@ git_reader_start (GitReader *reader,
   va_end (ap);
 
   spawn_ret = g_spawn_async_with_pipes (working_directory, args, NULL,
-					G_SPAWN_SEARCH_PATH
-					| G_SPAWN_DO_NOT_REAP_CHILD,
-					NULL, NULL, &priv->child_pid,
-					NULL, &stdout_fd, &stderr_fd,
-					error);
+                                        G_SPAWN_SEARCH_PATH
+                                        | G_SPAWN_DO_NOT_REAP_CHILD,
+                                        NULL, NULL, &priv->child_pid,
+                                        NULL, &stdout_fd, &stderr_fd,
+                                        error);
 
   g_strfreev (args);
 
@@ -441,8 +441,8 @@ git_reader_start (GitReader *reader,
 
   priv->child_watch_source
     = g_child_watch_add (priv->child_pid,
-			 git_reader_on_child_exit,
-			 reader);
+                         git_reader_on_child_exit,
+                         reader);
 
   priv->child_stdout = g_io_channel_unix_new (stdout_fd);
   /* We want unbuffered data otherwise the call to read will block */
@@ -450,8 +450,8 @@ git_reader_start (GitReader *reader,
   g_io_channel_set_buffered (priv->child_stdout, FALSE);
   priv->child_stdout_source
     = g_io_add_watch (priv->child_stdout, G_IO_IN | G_IO_HUP | G_IO_ERR,
-		      git_reader_on_child_stdout,
-		      reader);
+                      git_reader_on_child_stdout,
+                      reader);
 
   priv->child_stderr = g_io_channel_unix_new (stderr_fd);
   /* We want unbuffered data otherwise the call to read will block */
@@ -459,8 +459,8 @@ git_reader_start (GitReader *reader,
   g_io_channel_set_buffered (priv->child_stderr, FALSE);
   priv->child_stderr_source
     = g_io_add_watch (priv->child_stderr, G_IO_IN | G_IO_HUP | G_IO_ERR,
-		      git_reader_on_child_stderr,
-		      reader);
+                      git_reader_on_child_stderr,
+                      reader);
 
   priv->has_child = TRUE;
 

@@ -36,21 +36,21 @@ git_error_quark (void)
 
 gboolean
 _git_boolean_continue_accumulator (GSignalInvocationHint *ihint,
-				   GValue *return_accu,
-				   const GValue *handler_return,
-				   gpointer data)
+                                   GValue *return_accu,
+                                   const GValue *handler_return,
+                                   gpointer data)
 {
   gboolean continue_emission;
 
   continue_emission = g_value_get_boolean (handler_return);
   g_value_set_boolean (return_accu, continue_emission);
-  
+
   return continue_emission;
 }
 
 gboolean
 git_find_repo (const gchar *filename, gchar **repo,
-	       gchar **relative_filename)
+               gchar **relative_filename)
 {
   int len;
   gchar *full_filename, *full_filename_copy;
@@ -71,46 +71,46 @@ git_find_repo (const gchar *filename, gchar **repo,
 
   len = strlen (full_filename);
   full_filename_copy = g_malloc (len + strlen (G_DIR_SEPARATOR_S)
-				 + strlen (".git") + 1);
+                                 + strlen (".git") + 1);
 
   memcpy (full_filename_copy, full_filename, len);
 
   while (TRUE)
     {
       while (len > 0 && G_IS_DIR_SEPARATOR (full_filename[len - 1]))
-	len--;
+        len--;
       while (len > 0 && !G_IS_DIR_SEPARATOR (full_filename[len - 1]))
-	len--;
+        len--;
       while (len > 0 && G_IS_DIR_SEPARATOR (full_filename[len - 1]))
-	len--;
+        len--;
 
       if (len == 0)
-	break;
+        break;
 
       strcpy (full_filename_copy + len, G_DIR_SEPARATOR_S ".git");
 
       if (g_file_test (full_filename_copy, G_FILE_TEST_EXISTS))
-	{
-	  if (repo)
-	    {
-	      *repo = g_malloc (len + 1);
-	      memcpy (*repo, full_filename, len);
-	      (*repo)[len] = '\0';
-	    }
-	  if (relative_filename)
-	    {
-	      const gchar *p = full_filename + len;
-	      
-	      while (G_IS_DIR_SEPARATOR (*p))
-		p++;
+        {
+          if (repo)
+            {
+              *repo = g_malloc (len + 1);
+              memcpy (*repo, full_filename, len);
+              (*repo)[len] = '\0';
+            }
+          if (relative_filename)
+            {
+              const gchar *p = full_filename + len;
 
-	      *relative_filename = g_strdup (p);
-	    }
+              while (G_IS_DIR_SEPARATOR (*p))
+                p++;
 
-	  ret = TRUE;
+              *relative_filename = g_strdup (p);
+            }
 
-	  break;
-	}
+          ret = TRUE;
+
+          break;
+        }
     }
 
   g_free (full_filename_copy);
@@ -132,7 +132,7 @@ git_format_time_for_display (GTimeVal *time_)
   gint secs_diff;
 
   g_return_val_if_fail (time_->tv_usec >= 0
-			&& time_->tv_usec < G_USEC_PER_SEC, NULL);
+                        && time_->tv_usec < G_USEC_PER_SEC, NULL);
 
   g_get_current_time (&now);
 
@@ -217,7 +217,7 @@ git_format_time_for_display (GTimeVal *time_)
 /* This function is stolen from Tweet */
 void
 git_show_url (GtkWidget      *widget,
-	      const gchar    *link_)
+              const gchar    *link_)
 {
   GdkScreen *screen;
   gint pid;

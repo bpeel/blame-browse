@@ -33,13 +33,13 @@ typedef enum {
 GQuark git_error_quark (void);
 
 gboolean _git_boolean_continue_accumulator (GSignalInvocationHint *ihint,
-					    GValue *return_accu,
-					    const GValue *handler_return,
-					    gpointer data);
+                                            GValue *return_accu,
+                                            const GValue *handler_return,
+                                            gpointer data);
 gchar *git_format_time_for_display (GTimeVal *time_);
 void git_show_url (GtkWidget *widget, const gchar *link_);
 
 gboolean git_find_repo (const gchar *full_filename, gchar **repo,
-			gchar **relative_filename);
+                        gchar **relative_filename);
 
 #endif /* __GIT_COMMON_H__ */

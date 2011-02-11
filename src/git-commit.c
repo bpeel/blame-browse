@@ -32,9 +32,9 @@
 static void git_commit_finalize (GObject *object);
 static void git_commit_dispose (GObject *object);
 static void git_commit_set_property (GObject *object, guint property_id,
-				     const GValue *value, GParamSpec *pspec);
+                                     const GValue *value, GParamSpec *pspec);
 static void git_commit_get_property (GObject *object, guint property_id,
-				     GValue *value, GParamSpec *pspec);
+                                     GValue *value, GParamSpec *pspec);
 static void git_commit_unref_reader (GitCommit *commit);
 static void git_commit_free_parents (GitCommit *commit);
 
@@ -42,13 +42,13 @@ G_DEFINE_TYPE (GitCommit, git_commit, G_TYPE_OBJECT);
 
 #define GIT_COMMIT_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_COMMIT, \
-				GitCommitPrivate))
+                                GitCommitPrivate))
 
 struct _GitCommitPrivate
 {
   gchar *hash, *repo;
   GHashTable *props;
-  
+
   gboolean has_log_data;
   GSList *parents;
   gchar *log_data;
@@ -80,28 +80,28 @@ git_commit_class_init (GitCommitClass *klass)
   gobject_class->get_property = git_commit_get_property;
 
   pspec = g_param_spec_string ("hash",
-			       "Commit hash",
-			       "The SHA1 hash used to name the commit",
-			       GIT_COMMIT_DEFAULT_HASH,
-			       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
-			       | G_PARAM_WRITABLE);
+                               "Commit hash",
+                               "The SHA1 hash used to name the commit",
+                               GIT_COMMIT_DEFAULT_HASH,
+                               G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
+                               | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_HASH, pspec);
 
   pspec = g_param_spec_string ("repo",
-			       "repository",
-			       "Location of the repository where this commit "
-			       "originated",
-			       ".",
-			       G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
-			       | G_PARAM_WRITABLE);
+                               "repository",
+                               "Location of the repository where this commit "
+                               "originated",
+                               ".",
+                               G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
+                               | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_REPO, pspec);
 
   pspec = g_param_spec_boolean ("has-log-data",
-				"has log data",
-				"Whether the log data for the commit has "
-				"been retrieved",
-				FALSE,
-				G_PARAM_READABLE);
+                                "has log data",
+                                "Whether the log data for the commit has "
+                                "been retrieved",
+                                FALSE,
+                                G_PARAM_READABLE);
   g_object_class_install_property (gobject_class, PROP_HAS_LOG_DATA, pspec);
 
   g_type_class_add_private (klass, sizeof (GitCommitPrivate));
@@ -115,7 +115,7 @@ git_commit_init (GitCommit *self)
   priv = self->priv = GIT_COMMIT_GET_PRIVATE (self);
 
   priv->props = g_hash_table_new_full (g_str_hash, g_str_equal,
-				       g_free, g_free);
+                                       g_free, g_free);
 }
 
 static void
@@ -148,7 +148,7 @@ git_commit_dispose (GObject *object)
 
 static void
 git_commit_set_property (GObject *object, guint property_id,
-			 const GValue *value, GParamSpec *pspec)
+                         const GValue *value, GParamSpec *pspec)
 {
   GitCommit *commit = (GitCommit *) object;
   GitCommitPrivate *priv = commit->priv;
@@ -157,13 +157,13 @@ git_commit_set_property (GObject *object, guint property_id,
     {
     case PROP_HASH:
       if (priv->hash)
-	g_free (priv->hash);
+        g_free (priv->hash);
       priv->hash = g_strdup (g_value_get_string (value));
       break;
 
     case PROP_REPO:
       if (priv->repo)
-	g_free (priv->repo);
+        g_free (priv->repo);
       priv->repo = g_strdup (g_value_get_string (value));
       break;
 
@@ -175,7 +175,7 @@ git_commit_set_property (GObject *object, guint property_id,
 
 static void
 git_commit_get_property (GObject *object, guint property_id,
-			 GValue *value, GParamSpec *pspec)
+                         GValue *value, GParamSpec *pspec)
 {
   GitCommit *commit = (GitCommit *) object;
   GitCommitPrivate *priv = commit->priv;
@@ -202,9 +202,9 @@ GitCommit *
 git_commit_new (const gchar *hash, const gchar *repo)
 {
   GitCommit *self = g_object_new (GIT_TYPE_COMMIT,
-				  "hash", hash,
-				  "repo", repo,
-				  NULL);
+                                  "hash", hash,
+                                  "repo", repo,
+                                  NULL);
 
   return self;
 }
@@ -253,7 +253,7 @@ git_commit_get_parents (GitCommit *commit)
 
 static void
 git_commit_on_completed (GitReader *reader, const GError *error,
-			 GitCommit *commit)
+                         GitCommit *commit)
 {
   GitCommitPrivate *priv = commit->priv;
 
@@ -279,7 +279,7 @@ git_commit_on_completed (GitReader *reader, const GError *error,
 
 static gboolean
 git_commit_on_line (GitReader *reader, guint length, const gchar *line,
-		    GitCommit *commit)
+                    GitCommit *commit)
 {
   GitCommitPrivate *priv = commit->priv;
   gboolean ret = TRUE;
@@ -287,14 +287,14 @@ git_commit_on_line (GitReader *reader, guint length, const gchar *line,
   if (priv->got_parents)
     g_string_append_len (priv->log_buf, line, length);
   else if (length < GIT_COMMIT_HASH_LENGTH + 7
-	   || memcmp (line, "commit ", 7)
-	   || strlen (priv->hash) != GIT_COMMIT_HASH_LENGTH
-	   || memcmp (line + 7, priv->hash, GIT_COMMIT_HASH_LENGTH))
+           || memcmp (line, "commit ", 7)
+           || strlen (priv->hash) != GIT_COMMIT_HASH_LENGTH
+           || memcmp (line + 7, priv->hash, GIT_COMMIT_HASH_LENGTH))
     {
       GError *error = NULL;
 
       g_set_error (&error, GIT_ERROR, GIT_ERROR_PARSE_ERROR,
-		   "Invalid output from git-log");
+                   "Invalid output from git-log");
       git_commit_on_completed (priv->reader, error, commit);
       g_error_free (error);
 
@@ -308,46 +308,46 @@ git_commit_on_line (GitReader *reader, guint length, const gchar *line,
       length -= GIT_COMMIT_HASH_LENGTH + 7;
 
       while (length > GIT_COMMIT_HASH_LENGTH)
-	{
-	  int i;
-	  gchar *hash;
-	  GitCommit *commit;
+        {
+          int i;
+          gchar *hash;
+          GitCommit *commit;
 
-	  if (*line != ' ')
-	    break;
+          if (*line != ' ')
+            break;
 
-	  for (i = 1; i <= GIT_COMMIT_HASH_LENGTH
-		 && ((line[i] >= 'a' && line[i] <= 'f')
-		     || (line[i] >= '0' && line[i] <= '9'));
-	       i++);
+          for (i = 1; i <= GIT_COMMIT_HASH_LENGTH
+                 && ((line[i] >= 'a' && line[i] <= 'f')
+                     || (line[i] >= '0' && line[i] <= '9'));
+               i++);
 
-	  if (i <= GIT_COMMIT_HASH_LENGTH)
-	    break;
+          if (i <= GIT_COMMIT_HASH_LENGTH)
+            break;
 
-	  hash = g_strndup (line + 1, GIT_COMMIT_HASH_LENGTH);
-	  commit = git_commit_bag_get (commit_bag, hash, priv->repo);
-	  g_free (hash);
+          hash = g_strndup (line + 1, GIT_COMMIT_HASH_LENGTH);
+          commit = git_commit_bag_get (commit_bag, hash, priv->repo);
+          g_free (hash);
 
-	  priv->parents = g_slist_prepend (priv->parents,
-					   g_object_ref (commit));
+          priv->parents = g_slist_prepend (priv->parents,
+                                           g_object_ref (commit));
 
-	  length -= GIT_COMMIT_HASH_LENGTH + 1;
-	  line += GIT_COMMIT_HASH_LENGTH + 1;
-	}
+          length -= GIT_COMMIT_HASH_LENGTH + 1;
+          line += GIT_COMMIT_HASH_LENGTH + 1;
+        }
 
       if (length != 1 || *line != '\n')
-	{
-	  GError *error = NULL;
+        {
+          GError *error = NULL;
 
-	  g_set_error (&error, GIT_ERROR, GIT_ERROR_PARSE_ERROR,
-		       "Invalid output from git-log");
-	  git_commit_on_completed (priv->reader, error, commit);
-	  g_error_free (error);
+          g_set_error (&error, GIT_ERROR, GIT_ERROR_PARSE_ERROR,
+                       "Invalid output from git-log");
+          git_commit_on_completed (priv->reader, error, commit);
+          g_error_free (error);
 
-	  ret = FALSE;
-	}
+          ret = FALSE;
+        }
       else
-	priv->got_parents = TRUE;
+        priv->got_parents = TRUE;
     }
 
   return ret;
@@ -370,33 +370,33 @@ git_commit_fetch_log_data (GitCommit *commit)
       priv->log_buf = g_string_new ("");
 
       priv->line_handler
-	= g_signal_connect (priv->reader, "line",
-			    G_CALLBACK (git_commit_on_line), commit);
+        = g_signal_connect (priv->reader, "line",
+                            G_CALLBACK (git_commit_on_line), commit);
       priv->completed_handler
-	= g_signal_connect (priv->reader, "completed",
-			    G_CALLBACK (git_commit_on_completed), commit);
+        = g_signal_connect (priv->reader, "completed",
+                            G_CALLBACK (git_commit_on_completed), commit);
 
       git_reader_start (priv->reader, priv->repo, &error,
-			"log", "-n", "1", "--stat", "--parents",
-			priv->hash, NULL);
+                        "log", "-n", "1", "--stat", "--parents",
+                        priv->hash, NULL);
 
       if (error)
-	{
-	  git_commit_on_completed (priv->reader, error, commit);
-	  g_error_free (error);
-	}
+        {
+          git_commit_on_completed (priv->reader, error, commit);
+          g_error_free (error);
+        }
     }
 }
 
 void
 git_commit_set_prop (GitCommit *commit, const gchar *prop_name,
-		     const gchar *value)
+                     const gchar *value)
 {
   g_return_if_fail (GIT_IS_COMMIT (commit));
 
   g_hash_table_insert (commit->priv->props,
-		       g_strdup (prop_name),
-		       g_strdup (value));
+                       g_strdup (prop_name),
+                       g_strdup (value));
 }
 
 const gchar *
@@ -425,21 +425,21 @@ git_commit_get_color (GitCommit *commit, GdkColor *color)
       int nibble;
 
       if ((priv->hash[i] < 'a' || priv->hash[i] > 'f')
-	  && (priv->hash[i] < '0' || priv->hash[i] > '9'))
-	{
-	  g_warning ("Invalid commit hash");
-	  return;
-	}
+          && (priv->hash[i] < '0' || priv->hash[i] > '9'))
+        {
+          g_warning ("Invalid commit hash");
+          return;
+        }
 
       nibble = priv->hash[i] >= 'a'
-	? priv->hash[i] - 'a' + 10 : priv->hash[i] - '0';
+        ? priv->hash[i] - 'a' + 10 : priv->hash[i] - '0';
 
       if (i < 4)
-	color->red = (color->red << 4) | nibble;
+        color->red = (color->red << 4) | nibble;
       else if (i < 8)
-	color->green = (color->green << 4) | nibble;
+        color->green = (color->green << 4) | nibble;
       else
-	color->blue = (color->blue << 4) | nibble;
+        color->blue = (color->blue << 4) | nibble;
     }
 }
 

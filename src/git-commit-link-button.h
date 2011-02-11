@@ -56,7 +56,7 @@ struct _GitCommitLinkButtonClass
 struct _GitCommitLinkButton
 {
   GtkLinkButton parent;
-  
+
   GitCommitLinkButtonPrivate *priv;
 };
 
@@ -65,7 +65,7 @@ GType git_commit_link_button_get_type (void) G_GNUC_CONST;
 GtkWidget *git_commit_link_button_new (GitCommit *commit);
 
 void git_commit_link_button_set_commit (GitCommitLinkButton *lbutton,
-					GitCommit *commit);
+                                        GitCommit *commit);
 GitCommit *git_commit_link_button_get_commit (GitCommitLinkButton *lbutton);
 
 G_END_DECLS

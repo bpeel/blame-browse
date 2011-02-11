@@ -74,9 +74,9 @@ GType git_annotated_source_get_type (void) G_GNUC_CONST;
 
 GitAnnotatedSource *git_annotated_source_new (void);
 gboolean git_annotated_source_fetch (GitAnnotatedSource *source,
-				     const gchar *filename,
-				     const gchar *revision,
-				     GError **error);
+                                     const gchar *filename,
+                                     const gchar *revision,
+                                     GError **error);
 
 gsize git_annotated_source_get_n_lines (GitAnnotatedSource *source);
 

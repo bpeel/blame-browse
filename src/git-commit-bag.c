@@ -31,13 +31,13 @@ G_DEFINE_TYPE (GitCommitBag, git_commit_bag, G_TYPE_OBJECT);
 
 #define GIT_COMMIT_BAG_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_COMMIT_BAG, \
-				GitCommitBagPrivate))
+                                GitCommitBagPrivate))
 
 struct _GitCommitBagPrivate
 {
   GHashTable *hash_table;
 };
-  
+
 static void
 git_commit_bag_class_init (GitCommitBagClass *klass)
 {
@@ -57,7 +57,7 @@ git_commit_bag_init (GitCommitBag *self)
   priv = self->priv = GIT_COMMIT_BAG_GET_PRIVATE (self);
 
   priv->hash_table = g_hash_table_new_full (g_str_hash, g_str_equal,
-					    g_free, g_object_unref);
+                                            g_free, g_object_unref);
 }
 
 static void
@@ -95,7 +95,7 @@ git_commit_bag_get_default (void)
 
 GitCommit *
 git_commit_bag_get (GitCommitBag *commit_bag, const gchar *hash,
-		    const gchar *repo)
+                    const gchar *repo)
 {
   GitCommitBagPrivate *priv;
   gchar *hash_copy;

@@ -54,10 +54,10 @@ struct _GitSourceViewClass
   GtkWidgetClass parent_class;
 
   void (* set_scroll_adjustments) (GtkWidget *widget,
-				   GtkAdjustment *hadjustment,
-				   GtkAdjustment *vadjustment);
+                                   GtkAdjustment *hadjustment,
+                                   GtkAdjustment *vadjustment);
   void (* commit_selected) (GitSourceView *source_view,
-			    GitCommit *commit);
+                            GitCommit *commit);
 };
 
 struct _GitSourceView
@@ -78,8 +78,8 @@ GType git_source_view_get_type (void) G_GNUC_CONST;
 GtkWidget *git_source_view_new (void);
 
 void git_source_view_set_file (GitSourceView *sview,
-			       const gchar *filename,
-			       const gchar *revision);
+                               const gchar *filename,
+                               const gchar *revision);
 
 GitSourceViewState git_source_view_get_state (GitSourceView *sview);
 const GError *git_source_view_get_state_error (GitSourceView *sview);

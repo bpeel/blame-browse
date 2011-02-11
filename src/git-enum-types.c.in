@@ -32,18 +32,18 @@ GType
   if (G_UNLIKELY (!etype))
     {
       static const G@Type@Value values[] =
-	{
+        {
 /*** END value-header ***/
 
 /*** BEGIN value-production ***/
-	  { @VALUENAME@, "@VALUENAME@", "@valuenick@" },
+          { @VALUENAME@, "@VALUENAME@", "@valuenick@" },
 /*** END value-production ***/
 
 /*** BEGIN value-tail ***/
-	  { 0, NULL, NULL }
-	};
+          { 0, NULL, NULL }
+        };
       etype = g_@type@_register_static (g_intern_static_string ("@EnumName@"),
-					values);
+                                        values);
     }
   return etype;
 }

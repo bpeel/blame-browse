@@ -26,22 +26,22 @@
 
 static void git_commit_link_button_dispose (GObject *object);
 static void git_commit_link_button_set_property (GObject *object,
-						 guint property_id,
-						 const GValue *value,
-						 GParamSpec *pspec);
+                                                 guint property_id,
+                                                 const GValue *value,
+                                                 GParamSpec *pspec);
 static void git_commit_link_button_get_property (GObject *object,
-						 guint property_id,
-						 GValue *value,
-						 GParamSpec *pspec);
+                                                 guint property_id,
+                                                 GValue *value,
+                                                 GParamSpec *pspec);
 static void git_commit_link_button_clicked (GtkButton *button);
 
 G_DEFINE_TYPE (GitCommitLinkButton, git_commit_link_button,
-	       GTK_TYPE_LINK_BUTTON);
+               GTK_TYPE_LINK_BUTTON);
 
 #define GIT_COMMIT_LINK_BUTTON_GET_PRIVATE(obj) \
   (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-				GIT_TYPE_COMMIT_LINK_BUTTON, \
-				GitCommitLinkButtonPrivate))
+                                GIT_TYPE_COMMIT_LINK_BUTTON, \
+                                GitCommitLinkButtonPrivate))
 
 enum
   {
@@ -65,14 +65,14 @@ git_commit_link_button_class_init (GitCommitLinkButtonClass *klass)
   gobject_class->dispose = git_commit_link_button_dispose;
   gobject_class->set_property = git_commit_link_button_set_property;
   gobject_class->get_property = git_commit_link_button_get_property;
-  
+
   button_class->clicked = git_commit_link_button_clicked;
 
   pspec = g_param_spec_object ("commit",
-			       "Commit",
-			       "The commit object to link to",
-			       GIT_TYPE_COMMIT,
-			       G_PARAM_READABLE | G_PARAM_WRITABLE);
+                               "Commit",
+                               "The commit object to link to",
+                               GIT_TYPE_COMMIT,
+                               G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_COMMIT, pspec);
 
   g_type_class_add_private (klass, sizeof (GitCommitLinkButtonPrivate));
@@ -108,9 +108,9 @@ git_commit_link_button_dispose (GObject *object)
 
 static void
 git_commit_link_button_set_property (GObject *object,
-				     guint property_id,
-				     const GValue *value,
-				     GParamSpec *pspec)
+                                     guint property_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
 {
   GitCommitLinkButton *lbutton = (GitCommitLinkButton *) object;
 
@@ -128,9 +128,9 @@ git_commit_link_button_set_property (GObject *object,
 
 static void
 git_commit_link_button_get_property (GObject *object,
-				     guint property_id,
-				     GValue *value,
-				     GParamSpec *pspec)
+                                     guint property_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
 {
   GitCommitLinkButton *lbutton = (GitCommitLinkButton *) object;
 
@@ -155,7 +155,7 @@ git_commit_link_button_clicked (GtkButton *button)
 
 void
 git_commit_link_button_set_commit (GitCommitLinkButton *lbutton,
-				   GitCommit *commit)
+                                   GitCommit *commit)
 {
   GitCommitLinkButtonPrivate *priv = lbutton->priv;
 
@@ -168,7 +168,7 @@ git_commit_link_button_set_commit (GitCommitLinkButton *lbutton,
 
   if (commit)
     gtk_button_set_label (GTK_BUTTON (lbutton),
-			  git_commit_get_hash (commit));
+                          git_commit_get_hash (commit));
   else
     gtk_button_set_label (GTK_BUTTON (lbutton), "");
 
@@ -187,8 +187,8 @@ GtkWidget *
 git_commit_link_button_new (GitCommit *commit)
 {
   GtkWidget *self = g_object_new (GIT_TYPE_COMMIT_LINK_BUTTON,
-				  "commit", commit,
-				  NULL);
+                                  "commit", commit,
+                                  NULL);
 
   return self;
 }

@@ -65,7 +65,7 @@ GType git_commit_bag_get_type (void) G_GNUC_CONST;
 GitCommitBag *git_commit_bag_get_default (void);
 
 GitCommit *git_commit_bag_get (GitCommitBag *commit_bag,
-			       const gchar *hash, const gchar *repo);
+                               const gchar *hash, const gchar *repo);
 
 G_END_DECLS
 

@@ -64,8 +64,8 @@ GType git_main_window_get_type (void) G_GNUC_CONST;
 GtkWidget *git_main_window_new (void);
 
 void git_main_window_set_file (GitMainWindow *main_window,
-			       const gchar *filename,
-			       const gchar *revision);
+                               const gchar *filename,
+                               const gchar *revision);
 
 G_END_DECLS
 

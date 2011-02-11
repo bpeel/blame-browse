@@ -69,7 +69,7 @@ GType git_commit_dialog_get_type (void) G_GNUC_CONST;
 GtkWidget *git_commit_dialog_new (void);
 
 void git_commit_dialog_set_commit (GitCommitDialog *cdiag,
-				   GitCommit *commit);
+                                   GitCommit *commit);
 GitCommit *git_commit_dialog_get_commit (GitCommitDialog *cdiag);
 
 G_END_DECLS
