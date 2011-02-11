@@ -29,8 +29,12 @@ PKG_PROG_PKG_CONFIG
 
 dnl ========================================================================
 
-PKG_CHECK_MODULES(DEPS, [glib-2.0 >= 2.14 gtk+-2.0 >= 2.12
-                         gobject-2.0 gthread-2.0 gmodule-2.0])
+PKG_CHECK_MODULES(GLIB, [glib-2.0 >= 2.14 gobject-2.0
+                         gthread-2.0 gmodule-2.0])
+PKG_CHECK_MODULES(GTK, [gtk+-2.0 >= 2.12])
+
+DEPS_CFLAGS="$GLIB_CFLAGS $GTK_CFLAGS"
+DEPS_LIBS="$GLIB_LIBS $GTK_LIBS"
 
 AC_SUBST(DEPS_CFLAGS)
 AC_SUBST(DEPS_LIBS)
