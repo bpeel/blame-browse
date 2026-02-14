@@ -23,44 +23,13 @@
 
 G_BEGIN_DECLS
 
-#define GIT_TYPE_COMMIT_LINK_BUTTON                                     \
-  (git_commit_link_button_get_type())
-#define GIT_COMMIT_LINK_BUTTON(obj)                                     \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                                   \
-                               GIT_TYPE_COMMIT_LINK_BUTTON,             \
-                               GitCommitLinkButton))
-#define GIT_COMMIT_LINK_BUTTON_CLASS(klass)                             \
-  (G_TYPE_CHECK_CLASS_CAST ((klass),                                    \
-                            GIT_TYPE_COMMIT_LINK_BUTTON,                \
-                            GitCommitLinkButtonClass))
-#define GIT_IS_COMMIT_LINK_BUTTON(obj)                                  \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj),                                   \
-                               GIT_TYPE_COMMIT_LINK_BUTTON))
-#define GIT_IS_COMMIT_LINK_BUTTON_CLASS(klass)                          \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass),                                    \
-                            GIT_TYPE_COMMIT_LINK_BUTTON))
-#define GIT_COMMIT_LINK_BUTTON_GET_CLASS(obj)                           \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj),                                    \
-                              GIT_TYPE_COMMIT_LINK_BUTTON,              \
-                              GitCommitLinkButtonClass))
+#define GIT_TYPE_COMMIT_LINK_BUTTON git_commit_link_button_get_type ()
 
-typedef struct _GitCommitLinkButton        GitCommitLinkButton;
-typedef struct _GitCommitLinkButtonClass   GitCommitLinkButtonClass;
-typedef struct _GitCommitLinkButtonPrivate GitCommitLinkButtonPrivate;
-
-struct _GitCommitLinkButtonClass
-{
-  GtkLinkButtonClass parent_class;
-};
-
-struct _GitCommitLinkButton
-{
-  GtkLinkButton parent;
-
-  GitCommitLinkButtonPrivate *priv;
-};
-
-GType git_commit_link_button_get_type (void) G_GNUC_CONST;
+G_DECLARE_FINAL_TYPE (GitCommitLinkButton,
+                      git_commit_link_button,
+                      GIT,
+                      COMMIT_LINK_BUTTON,
+                      GtkLinkButton);
 
 GtkWidget *git_commit_link_button_new (GitCommit *commit);
 

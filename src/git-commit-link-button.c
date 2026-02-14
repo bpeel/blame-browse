@@ -33,13 +33,19 @@ static void git_commit_link_button_get_property (GObject *object,
                                                  GParamSpec *pspec);
 static void git_commit_link_button_clicked (GtkButton *button);
 
-G_DEFINE_TYPE (GitCommitLinkButton, git_commit_link_button,
-               GTK_TYPE_LINK_BUTTON);
+struct _GitCommitLinkButton
+{
+  GtkLinkButton parent;
+};
 
-#define GIT_COMMIT_LINK_BUTTON_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), \
-                                GIT_TYPE_COMMIT_LINK_BUTTON, \
-                                GitCommitLinkButtonPrivate))
+typedef struct
+{
+  GitCommit *commit;
+} GitCommitLinkButtonPrivate;
+
+G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitLinkButton,
+                                  git_commit_link_button,
+                                  GTK_TYPE_LINK_BUTTON);
 
 enum
   {
@@ -47,11 +53,6 @@ enum
 
     PROP_COMMIT
   };
-
-struct _GitCommitLinkButtonPrivate
-{
-  GitCommit *commit;
-};
 
 static void
 git_commit_link_button_class_init (GitCommitLinkButtonClass *klass)
@@ -72,20 +73,18 @@ git_commit_link_button_class_init (GitCommitLinkButtonClass *klass)
                                GIT_TYPE_COMMIT,
                                G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_COMMIT, pspec);
-
-  g_type_class_add_private (klass, sizeof (GitCommitLinkButtonPrivate));
 }
 
 static void
 git_commit_link_button_init (GitCommitLinkButton *self)
 {
-  self->priv = GIT_COMMIT_LINK_BUTTON_GET_PRIVATE (self);
 }
 
 static void
 git_commit_link_button_unref_commit (GitCommitLinkButton *lbutton)
 {
-  GitCommitLinkButtonPrivate *priv = lbutton->priv;
+  GitCommitLinkButtonPrivate *priv =
+    git_commit_link_button_get_instance_private (lbutton);
 
   if (priv->commit)
     {
@@ -155,7 +154,8 @@ void
 git_commit_link_button_set_commit (GitCommitLinkButton *lbutton,
                                    GitCommit *commit)
 {
-  GitCommitLinkButtonPrivate *priv = lbutton->priv;
+  GitCommitLinkButtonPrivate *priv =
+    git_commit_link_button_get_instance_private (lbutton);
 
   if (commit)
     g_object_ref (commit);
@@ -176,7 +176,8 @@ git_commit_link_button_set_commit (GitCommitLinkButton *lbutton,
 GitCommit *
 git_commit_link_button_get_commit (GitCommitLinkButton *lbutton)
 {
-  GitCommitLinkButtonPrivate *priv = lbutton->priv;
+  GitCommitLinkButtonPrivate *priv =
+    git_commit_link_button_get_instance_private (lbutton);
 
   return priv->commit;
 }
