@@ -36,7 +36,7 @@ gboolean _git_boolean_continue_accumulator (GSignalInvocationHint *ihint,
                                             GValue *return_accu,
                                             const GValue *handler_return,
                                             gpointer data);
-gchar *git_format_time_for_display (GTimeVal *time_);
+gchar *git_format_time_for_display (GDateTime *dt);
 
 gboolean git_find_repo (const gchar *full_filename, gchar **repo,
                         gchar **relative_filename);

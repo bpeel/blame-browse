@@ -690,25 +690,29 @@ git_source_view_query_tooltip (GtkWidget *widget,
     }
   if ((part = git_commit_get_prop (commit, "author-time")))
     {
-      GTimeVal time_;
+      long unix_timestamp;
       char *tail;
 
       errno = 0;
-      time_.tv_sec = strtol (part, &tail, 10);
-      time_.tv_usec = 0;
+      unix_timestamp = strtol (part, &tail, 10);
 
       if (errno == 0 && *tail == '\0')
         {
-          gchar *display_time;
+          GDateTime *dt = g_date_time_new_from_unix_local (unix_timestamp);
 
-          if (markup->len > 0)
-            g_string_append_c (markup, '\n');
+          gchar *display_time = git_format_time_for_display (dt);
 
-          display_time = git_format_time_for_display (&time_);
-          part_markup = g_markup_escape_text (display_time, -1);
-          g_free (display_time);
-          g_string_append (markup, part_markup);
-          g_free (part_markup);
+          if (display_time)
+            {
+              if (markup->len > 0)
+                g_string_append_c (markup, '\n');
+              part_markup = g_markup_escape_text (display_time, -1);
+              g_free (display_time);
+              g_string_append (markup, part_markup);
+              g_free (part_markup);
+            }
+
+          g_date_time_unref (dt);
         }
     }
   if ((part = git_commit_get_prop (commit, "summary")))
