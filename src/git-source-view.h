@@ -35,9 +35,6 @@ struct _GitSourceViewClass
 {
   GtkWidgetClass parent_class;
 
-  void (* set_scroll_adjustments) (GtkWidget *widget,
-                                   GtkAdjustment *hadjustment,
-                                   GtkAdjustment *vadjustment);
   void (* commit_selected) (GitSourceView *source_view,
                             GitCommit *commit);
 };
