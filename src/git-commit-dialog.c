@@ -51,7 +51,7 @@ typedef struct
   guint has_log_data_handler;
   GitCommitDialogButtonData *buttons;
 
-  GtkWidget *table, *log_view;
+  GtkWidget *grid, *log_view;
 } GitCommitDialogPrivate;
 
 G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitDialog,
@@ -99,14 +99,14 @@ git_commit_dialog_init (GitCommitDialog *self)
 
   gtk_container_set_border_width (GTK_CONTAINER (self), 5);
 
-  priv->table = g_object_ref_sink (gtk_table_new (0, 2, FALSE));
-  gtk_table_set_col_spacing (GTK_TABLE (priv->table), 0, 5);
-  gtk_widget_show (priv->table);
+  priv->grid = g_object_ref_sink (gtk_grid_new ());
+  gtk_grid_set_column_spacing (GTK_GRID (priv->grid), 5);
+  gtk_widget_show (priv->grid);
 
   content = gtk_vbox_new (FALSE, 11);
   gtk_container_set_border_width (GTK_CONTAINER (content), 5);
 
-  gtk_box_pack_start (GTK_BOX (content), priv->table, FALSE, FALSE, 0);
+  gtk_box_pack_start (GTK_BOX (content), priv->grid, FALSE, FALSE, 0);
 
   scrolled_window = gtk_scrolled_window_new (NULL, NULL);
   gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
@@ -182,10 +182,10 @@ git_commit_dialog_dispose (GObject *object)
 
   git_commit_dialog_unref_commit (self);
 
-  if (priv->table)
+  if (priv->grid)
     {
-      g_object_unref (priv->table);
-      priv->table = NULL;
+      g_object_unref (priv->grid);
+      priv->grid = NULL;
     }
 
   if (priv->log_view)
@@ -240,10 +240,10 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
 
   git_commit_dialog_unref_buttons (cdiag);
 
-  if (priv->table)
+  if (priv->grid)
     {
       /* Remove all existing parent commit labels */
-      gtk_container_foreach (GTK_CONTAINER (priv->table),
+      gtk_container_foreach (GTK_CONTAINER (priv->grid),
                              (GtkCallback) gtk_widget_destroy, NULL);
 
       if (priv->commit)
@@ -255,21 +255,16 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
                         "xalign", 0.0f,
                         NULL);
           gtk_widget_show (widget);
-          gtk_table_attach (GTK_TABLE (priv->table),
-                            widget,
-                            0, 1, 0, 1,
-                            GTK_FILL | GTK_SHRINK, GTK_FILL | GTK_SHRINK,
-                            0, 0);
+          gtk_grid_attach (GTK_GRID (priv->grid),
+                           widget,
+                           0, 0, 1, 1);
 
           widget = git_commit_link_button_new (priv->commit);
           git_commit_dialog_add_commit_button (cdiag, widget);
           gtk_widget_show (widget);
-          gtk_table_attach (GTK_TABLE (priv->table),
-                            widget,
-                            1, 2, 0, 1,
-                            GTK_FILL | GTK_SHRINK | GTK_EXPAND,
-                            GTK_FILL | GTK_SHRINK,
-                            0, 0);
+          gtk_grid_attach (GTK_GRID (priv->grid),
+                           widget,
+                           1, 0, 1, 1);
 
           if (git_commit_get_has_log_data (priv->commit))
             {
@@ -288,22 +283,16 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
                                 "xalign", 0.0f,
                                 NULL);
                   gtk_widget_show (widget);
-                  gtk_table_attach (GTK_TABLE (priv->table),
-                                    widget,
-                                    0, 1, y, y + 1,
-                                    GTK_FILL | GTK_SHRINK,
-                                    GTK_FILL | GTK_SHRINK,
-                                    0, 0);
+                  gtk_grid_attach (GTK_GRID (priv->grid),
+                                   widget,
+                                   0, y, 1, 1);
 
                   widget = git_commit_link_button_new (commit);
                   git_commit_dialog_add_commit_button (cdiag, widget);
                   gtk_widget_show (widget);
-                  gtk_table_attach (GTK_TABLE (priv->table),
-                                    widget,
-                                    1, 2, y, y + 1,
-                                    GTK_FILL | GTK_SHRINK | GTK_EXPAND,
-                                    GTK_FILL | GTK_SHRINK,
-                                    0, 0);
+                  gtk_grid_attach (GTK_GRID (priv->grid),
+                                   widget,
+                                   1, y, 1, 1);
                 }
             }
         }
