@@ -23,44 +23,13 @@
 
 G_BEGIN_DECLS
 
-#define GIT_TYPE_COMMIT_BAG                                             \
-  (git_commit_bag_get_type())
-#define GIT_COMMIT_BAG(obj)                                             \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                                   \
-                               GIT_TYPE_COMMIT_BAG,                     \
-                               GitCommitBag))
-#define GIT_COMMIT_BAG_CLASS(klass)                                     \
-  (G_TYPE_CHECK_CLASS_CAST ((klass),                                    \
-                            GIT_TYPE_COMMIT_BAG,                        \
-                            GitCommitBagClass))
-#define GIT_IS_COMMIT_BAG(obj)                                          \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj),                                   \
-                               GIT_TYPE_COMMIT_BAG))
-#define GIT_IS_COMMIT_BAG_CLASS(klass)                                  \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass),                                    \
-                            GIT_TYPE_COMMIT_BAG))
-#define GIT_COMMIT_BAG_GET_CLASS(obj)                                   \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj),                                    \
-                              GIT_TYPE_COMMIT_BAG,                      \
-                              GitCommitBagClass))
+#define GIT_TYPE_COMMIT_BAG git_commit_bag_get_type ()
 
-typedef struct _GitCommitBag        GitCommitBag;
-typedef struct _GitCommitBagClass   GitCommitBagClass;
-typedef struct _GitCommitBagPrivate GitCommitBagPrivate;
-
-struct _GitCommitBagClass
-{
-  GObjectClass parent_class;
-};
-
-struct _GitCommitBag
-{
-  GObject parent;
-
-  GitCommitBagPrivate *priv;
-};
-
-GType git_commit_bag_get_type (void) G_GNUC_CONST;
+G_DECLARE_FINAL_TYPE (GitCommitBag,
+                      git_commit_bag,
+                      GIT,
+                      COMMIT_BAG,
+                      GObject);
 
 GitCommitBag *git_commit_bag_get_default (void);
 

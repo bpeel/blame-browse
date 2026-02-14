@@ -25,16 +25,19 @@
 static void git_commit_bag_dispose (GObject *object);
 static void git_commit_bag_finalize (GObject *object);
 
-G_DEFINE_TYPE (GitCommitBag, git_commit_bag, G_TYPE_OBJECT);
+struct _GitCommitBag
+{
+  GObject parent;
+};
 
-#define GIT_COMMIT_BAG_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_COMMIT_BAG, \
-                                GitCommitBagPrivate))
-
-struct _GitCommitBagPrivate
+typedef struct
 {
   GHashTable *hash_table;
-};
+} GitCommitBagPrivate;
+
+G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitBag,
+                                  git_commit_bag,
+                                  G_TYPE_OBJECT);
 
 static void
 git_commit_bag_class_init (GitCommitBagClass *klass)
@@ -43,16 +46,12 @@ git_commit_bag_class_init (GitCommitBagClass *klass)
 
   gobject_class->dispose = git_commit_bag_dispose;
   gobject_class->finalize = git_commit_bag_finalize;
-
-  g_type_class_add_private (klass, sizeof (GitCommitBagPrivate));
 }
 
 static void
 git_commit_bag_init (GitCommitBag *self)
 {
-  GitCommitBagPrivate *priv;
-
-  priv = self->priv = GIT_COMMIT_BAG_GET_PRIVATE (self);
+  GitCommitBagPrivate *priv = git_commit_bag_get_instance_private (self);
 
   priv->hash_table = g_hash_table_new_full (g_str_hash, g_str_equal,
                                             g_free, g_object_unref);
@@ -62,7 +61,7 @@ static void
 git_commit_bag_dispose (GObject *object)
 {
   GitCommitBag *self = (GitCommitBag *) object;
-  GitCommitBagPrivate *priv = self->priv;
+  GitCommitBagPrivate *priv = git_commit_bag_get_instance_private (self);
 
   g_hash_table_remove_all (priv->hash_table);
 
@@ -73,7 +72,7 @@ static void
 git_commit_bag_finalize (GObject *object)
 {
   GitCommitBag *self = (GitCommitBag *) object;
-  GitCommitBagPrivate *priv = self->priv;
+  GitCommitBagPrivate *priv = git_commit_bag_get_instance_private (self);
 
   g_hash_table_destroy (priv->hash_table);
 
@@ -95,14 +94,12 @@ GitCommit *
 git_commit_bag_get (GitCommitBag *commit_bag, const gchar *hash,
                     const gchar *repo)
 {
-  GitCommitBagPrivate *priv;
-  gchar *hash_copy;
-  GitCommit *commit;
-
   g_return_val_if_fail (GIT_IS_COMMIT_BAG (commit_bag), NULL);
 
-  priv = commit_bag->priv;
-  hash_copy = g_strdup (hash);
+  GitCommitBagPrivate *priv = git_commit_bag_get_instance_private (commit_bag);
+  gchar *hash_copy = g_strdup (hash);
+
+  GitCommit *commit;
 
   if ((commit = g_hash_table_lookup (priv->hash_table, hash_copy)))
     g_free (hash_copy);
