@@ -170,6 +170,10 @@ git_source_view_init (GitSourceView *sview)
 
   priv->state = GIT_SOURCE_VIEW_READY;
   priv->state_error = NULL;
+
+  GtkStyleContext *style_context =
+    gtk_widget_get_style_context (GTK_WIDGET (sview));
+  gtk_style_context_add_class (style_context, GTK_STYLE_CLASS_VIEW);
 }
 
 static void
@@ -438,13 +442,6 @@ git_source_view_realize (GtkWidget *widget)
 
   gtk_widget_register_window (widget, window);
 
-  gtk_widget_style_attach (widget);
-
-  GtkStyle *style = gtk_widget_get_style (widget);
-
-  gdk_window_set_background (window,
-                             &style->base[gtk_widget_get_state (widget)]);
-
   git_source_view_calculate_line_height (GIT_SOURCE_VIEW (widget));
 }
 
@@ -453,20 +450,22 @@ git_source_view_draw (GtkWidget *widget, cairo_t *cr)
 {
   GitSourceView *sview = (GitSourceView *) widget;
   GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
-  gsize line_start, line_end, line_num, n_lines;
-  gint y;
-  PangoLayout *layout;
+  GtkStyleContext *style_context = gtk_widget_get_style_context (widget);
+  GtkAllocation allocation;
+  gtk_widget_get_allocation (widget, &allocation);
+
+  gtk_render_background (style_context,
+                         cr,
+                         0, 0,
+                         allocation.width, allocation.height);
 
   if (priv->paint_source && priv->line_height)
     {
-      GtkAllocation allocation;
-      gtk_widget_get_allocation (widget, &allocation);
+      PangoLayout *layout = gtk_widget_create_pango_layout (widget, NULL);
 
-      layout = gtk_widget_create_pango_layout (widget, NULL);
-
-      n_lines = git_annotated_source_get_n_lines (priv->paint_source);
-      line_start = priv->y_offset / priv->line_height;
-      line_end = (priv->y_offset + allocation.height + priv->line_height - 1)
+      gsize n_lines = git_annotated_source_get_n_lines (priv->paint_source);
+      gsize line_start = priv->y_offset / priv->line_height;
+      gsize line_end = (priv->y_offset + allocation.height + priv->line_height - 1)
         / priv->line_height;
 
       if (line_end > n_lines)
@@ -474,12 +473,12 @@ git_source_view_draw (GtkWidget *widget, cairo_t *cr)
       if (line_start > line_end)
         line_start = line_end;
 
-      for (line_num = line_start; line_num < line_end; line_num++)
+      for (gsize line_num = line_start; line_num < line_end; line_num++)
         {
           const GitAnnotatedSourceLine *line
             = git_annotated_source_get_line (priv->paint_source, line_num);
           GdkRGBA color;
-          y = line_num * priv->line_height - priv->y_offset;
+          gint y = line_num * priv->line_height - priv->y_offset;
 
           git_source_view_set_text_for_commit (layout, line->commit);
           git_commit_get_color (line->commit, &color);
@@ -510,16 +509,12 @@ git_source_view_draw (GtkWidget *widget, cairo_t *cr)
                            priv->line_height);
           cairo_clip (cr);
 
-          gtk_paint_layout (gtk_widget_get_style (widget),
-                            cr,
-                            gtk_widget_get_state (widget),
-                            TRUE,
-                            widget,
-                            NULL, /* detail */
-                            -priv->x_offset + priv->max_hash_length
-                            + GIT_SOURCE_VIEW_GAP,
-                            y,
-                            layout);
+          gtk_render_layout (style_context,
+                             cr,
+                             -priv->x_offset + priv->max_hash_length
+                             + GIT_SOURCE_VIEW_GAP,
+                             y,
+                             layout);
 
           cairo_restore (cr);
         }
