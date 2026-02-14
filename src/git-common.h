@@ -20,7 +20,7 @@
 
 #include <glib.h>
 #include <glib-object.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 
 #define GIT_ERROR (git_error_quark ())
 
@@ -37,7 +37,6 @@ gboolean _git_boolean_continue_accumulator (GSignalInvocationHint *ihint,
                                             const GValue *handler_return,
                                             gpointer data);
 gchar *git_format_time_for_display (GTimeVal *time_);
-void git_show_url (GtkWidget *widget, const gchar *link_);
 
 gboolean git_find_repo (const gchar *full_filename, gchar **repo,
                         gchar **relative_filename);

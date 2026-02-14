@@ -20,7 +20,7 @@
 #include "config.h"
 
 #include <glib.h>
-#include <gtk/gtkwidget.h>
+#include <gtk/gtk.h>
 #include <string.h>
 
 #include "git-common.h"
@@ -210,40 +210,4 @@ git_format_time_for_display (GTimeVal *time_)
   g_free (locale_format);
 
   return retval;
-}
-
-/* This function is stolen from Tweet */
-void
-git_show_url (GtkWidget      *widget,
-              const gchar    *link_)
-{
-  GdkScreen *screen;
-  gint pid;
-  GError *error;
-  gchar **argv;
-
-  if (widget && gtk_widget_has_screen (widget))
-    screen = gtk_widget_get_screen (widget);
-  else
-    screen = gdk_screen_get_default ();
-
-  argv = g_new (gchar*, 3);
-  argv[0] = g_strdup ("xdg-open");
-  argv[1] = g_strdup (link_);
-  argv[2] = NULL;
-
-  error = NULL;
-  gdk_spawn_on_screen (screen,
-                       NULL,
-                       argv, NULL,
-                       G_SPAWN_SEARCH_PATH,
-                       NULL, NULL,
-                       &pid, &error);
-  if (error)
-    {
-      g_critical ("Unable to launch gnome-open: %s", error->message);
-      g_error_free (error);
-    }
-
-  g_strfreev (argv);
 }

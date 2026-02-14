@@ -17,7 +17,7 @@
 
 #include "config.h"
 
-#include <gtk/gtklinkbutton.h>
+#include <gtk/gtk.h>
 
 #include "git-commit-link-button.h"
 #include "git-commit.h"

@@ -17,17 +17,7 @@
 
 #include "config.h"
 
-#include <gtk/gtkwindow.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtkstatusbar.h>
-#include <gtk/gtkcontainer.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkuimanager.h>
-#include <gtk/gtkstock.h>
-#include <gtk/gtkaboutdialog.h>
-#include <gtk/gtkfilechooserdialog.h>
-#include <gtk/gtkentry.h>
-#include <gtk/gtktoolbar.h>
+#include <gtk/gtk.h>
 #include <string.h>
 
 #include "git-main-window.h"
@@ -619,14 +609,6 @@ git_main_window_on_quit (GtkAction *action,
 }
 
 static void
-git_main_window_about_url_hook (GtkAboutDialog *about,
-                                const gchar *link_,
-                                gpointer data)
-{
-  git_show_url (GTK_WIDGET (about), link_);
-}
-
-static void
 git_main_window_on_about (GtkAction *action,
                           GitMainWindow *main_window)
 {
@@ -641,8 +623,6 @@ git_main_window_on_about (GtkAction *action,
       NULL
     };
   const gchar *copyright = "Copyright \xc2\xa9 2008 Neil Roberts";
-
-  gtk_about_dialog_set_url_hook (git_main_window_about_url_hook, NULL, NULL);
 
   gtk_show_about_dialog (GTK_WINDOW (main_window),
                          "version", PACKAGE_VERSION,

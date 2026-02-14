@@ -18,7 +18,7 @@
 #ifndef __GIT_COMMIT_LINK_BUTTON_H__
 #define __GIT_COMMIT_LINK_BUTTON_H__
 
-#include <gtk/gtklinkbutton.h>
+#include <gtk/gtk.h>
 #include "git-commit.h"
 
 G_BEGIN_DECLS

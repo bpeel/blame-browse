@@ -23,7 +23,7 @@ cdata.set_quoted('PACKAGE_VERSION', meson.project_version())
 cdata.set_quoted('BB_DATADIR', bb_datadir)
 cdata.set_quoted('BB_SRCDIR', bb_srcdir)
 
-gtk_dep = dependency('gtk+-2.0')
+gtk_dep = dependency('gtk+-3.0')
 
 subdir('src')
 

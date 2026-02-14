@@ -405,7 +405,7 @@ git_commit_get_prop (GitCommit *commit, const gchar *prop_name)
 }
 
 void
-git_commit_get_color (GitCommit *commit, GdkColor *color)
+git_commit_get_color (GitCommit *commit, GdkRGBA *color)
 {
   GitCommitPrivate *priv;
   int i;
@@ -414,7 +414,7 @@ git_commit_get_color (GitCommit *commit, GdkColor *color)
 
   priv = commit->priv;
 
-  memset (color, 0, sizeof (GdkColor));
+  guint16 bytes[3] = { 0, 0, 0 };
 
   /* Use the first 6 bytes of the commit hash as a colour */
   for (i = 0; i < 12; i++)
@@ -431,13 +431,13 @@ git_commit_get_color (GitCommit *commit, GdkColor *color)
       nibble = priv->hash[i] >= 'a'
         ? priv->hash[i] - 'a' + 10 : priv->hash[i] - '0';
 
-      if (i < 4)
-        color->red = (color->red << 4) | nibble;
-      else if (i < 8)
-        color->green = (color->green << 4) | nibble;
-      else
-        color->blue = (color->blue << 4) | nibble;
+      bytes[i / 4] = (bytes[i / 4] << 4) | nibble;
     }
+
+  color->red = bytes[0] / 65535.0;
+  color->green = bytes[1] / 65535.0;
+  color->blue = bytes[2] / 65535.0;
+  color->alpha = 1.0;
 }
 
 static void

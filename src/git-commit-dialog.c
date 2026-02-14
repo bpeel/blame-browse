@@ -17,13 +17,7 @@
 
 #include "config.h"
 
-#include <gtk/gtkdialog.h>
-#include <gtk/gtklabel.h>
-#include <gtk/gtkvbox.h>
-#include <gtk/gtktable.h>
-#include <gtk/gtktextview.h>
-#include <gtk/gtkscrolledwindow.h>
-#include <gtk/gtkstock.h>
+#include <gtk/gtk.h>
 
 #include "git-commit-dialog.h"
 #include "git-commit-link-button.h"
@@ -104,14 +98,11 @@ git_commit_dialog_init (GitCommitDialog *self)
 
   priv = self->priv = GIT_COMMIT_DIALOG_GET_PRIVATE (self);
 
-  gtk_dialog_set_has_separator (GTK_DIALOG (self), FALSE);
   gtk_container_set_border_width (GTK_CONTAINER (self), 5);
 
   priv->table = g_object_ref_sink (gtk_table_new (0, 2, FALSE));
   gtk_table_set_col_spacing (GTK_TABLE (priv->table), 0, 5);
   gtk_widget_show (priv->table);
-
-  g_object_set (GTK_DIALOG (self)->vbox, "spacing", 2, NULL);
 
   content = gtk_vbox_new (FALSE, 11);
   gtk_container_set_border_width (GTK_CONTAINER (content), 5);
@@ -139,7 +130,10 @@ git_commit_dialog_init (GitCommitDialog *self)
   gtk_box_pack_start (GTK_BOX (content), scrolled_window, TRUE, TRUE, 0);
 
   gtk_widget_show (content);
-  gtk_box_pack_start (GTK_BOX (GTK_DIALOG (self)->vbox), content,
+
+  GtkWidget *content_area = gtk_dialog_get_content_area (GTK_DIALOG (self));
+
+  gtk_box_pack_start (GTK_BOX (content_area), content,
                       TRUE, TRUE, 0);
 
   gtk_dialog_add_buttons (GTK_DIALOG (self),

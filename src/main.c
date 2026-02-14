@@ -17,8 +17,7 @@
 
 #include "config.h"
 
-#include <gtk/gtkmain.h>
-#include <gtk/gtkwindow.h>
+#include <gtk/gtk.h>
 
 #include "git-main-window.h"
 #include "intl.h"

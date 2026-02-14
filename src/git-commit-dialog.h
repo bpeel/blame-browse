@@ -18,7 +18,7 @@
 #ifndef __GIT_COMMIT_DIALOG_H__
 #define __GIT_COMMIT_DIALOG_H__
 
-#include <gtk/gtkdialog.h>
+#include <gtk/gtk.h>
 #include "git-commit.h"
 
 G_BEGIN_DECLS
