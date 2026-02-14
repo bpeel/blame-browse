@@ -103,7 +103,7 @@ git_commit_dialog_init (GitCommitDialog *self)
   gtk_grid_set_column_spacing (GTK_GRID (priv->grid), 5);
   gtk_widget_show (priv->grid);
 
-  content = gtk_vbox_new (FALSE, 11);
+  content = gtk_box_new (GTK_ORIENTATION_VERTICAL, 11);
   gtk_container_set_border_width (GTK_CONTAINER (content), 5);
 
   gtk_box_pack_start (GTK_BOX (content), priv->grid, FALSE, FALSE, 0);
