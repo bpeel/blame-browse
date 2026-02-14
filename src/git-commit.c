@@ -36,13 +36,12 @@ static void git_commit_get_property (GObject *object, guint property_id,
 static void git_commit_unref_reader (GitCommit *commit);
 static void git_commit_free_parents (GitCommit *commit);
 
-G_DEFINE_TYPE (GitCommit, git_commit, G_TYPE_OBJECT);
+struct _GitCommit
+{
+  GObject parent;
+};
 
-#define GIT_COMMIT_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_COMMIT, \
-                                GitCommitPrivate))
-
-struct _GitCommitPrivate
+typedef struct
 {
   gchar *hash, *repo;
   GHashTable *props;
@@ -55,7 +54,11 @@ struct _GitCommitPrivate
   guint line_handler, completed_handler;
   GString *log_buf;
   gboolean got_parents;
-};
+} GitCommitPrivate;
+
+G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommit,
+                                  git_commit,
+                                  G_TYPE_OBJECT);
 
 enum
   {
@@ -101,16 +104,12 @@ git_commit_class_init (GitCommitClass *klass)
                                 FALSE,
                                 G_PARAM_READABLE);
   g_object_class_install_property (gobject_class, PROP_HAS_LOG_DATA, pspec);
-
-  g_type_class_add_private (klass, sizeof (GitCommitPrivate));
 }
 
 static void
 git_commit_init (GitCommit *self)
 {
-  GitCommitPrivate *priv;
-
-  priv = self->priv = GIT_COMMIT_GET_PRIVATE (self);
+  GitCommitPrivate *priv = git_commit_get_instance_private (self);
 
   priv->props = g_hash_table_new_full (g_str_hash, g_str_equal,
                                        g_free, g_free);
@@ -120,7 +119,7 @@ static void
 git_commit_finalize (GObject *object)
 {
   GitCommit *self = (GitCommit *) object;
-  GitCommitPrivate *priv = self->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (self);
 
   if (priv->hash)
     g_free (priv->hash);
@@ -149,7 +148,7 @@ git_commit_set_property (GObject *object, guint property_id,
                          const GValue *value, GParamSpec *pspec)
 {
   GitCommit *commit = (GitCommit *) object;
-  GitCommitPrivate *priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   switch (property_id)
     {
@@ -176,7 +175,7 @@ git_commit_get_property (GObject *object, guint property_id,
                          GValue *value, GParamSpec *pspec)
 {
   GitCommit *commit = (GitCommit *) object;
-  GitCommitPrivate *priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   switch (property_id)
     {
@@ -212,7 +211,9 @@ git_commit_get_hash (GitCommit *commit)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
 
-  return commit->priv->hash;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  return priv->hash;
 }
 
 const gchar *
@@ -220,7 +221,9 @@ git_commit_get_repo (GitCommit *commit)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
 
-  return commit->priv->repo;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  return priv->repo;
 }
 
 gboolean
@@ -228,32 +231,40 @@ git_commit_get_has_log_data (GitCommit *commit)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), FALSE);
 
-  return commit->priv->has_log_data;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  return priv->has_log_data;
 }
 
 const gchar *
 git_commit_get_log_data (GitCommit *commit)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
-  g_return_val_if_fail (commit->priv->has_log_data, NULL);
 
-  return commit->priv->log_data;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  g_return_val_if_fail (priv->has_log_data, NULL);
+
+  return priv->log_data;
 }
 
 const GSList *
 git_commit_get_parents (GitCommit *commit)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
-  g_return_val_if_fail (commit->priv->has_log_data, NULL);
 
-  return commit->priv->parents;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  g_return_val_if_fail (priv->has_log_data, NULL);
+
+  return priv->parents;
 }
 
 static void
 git_commit_on_completed (GitReader *reader, const GError *error,
                          GitCommit *commit)
 {
-  GitCommitPrivate *priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   git_commit_unref_reader (commit);
 
@@ -278,7 +289,7 @@ static gboolean
 git_commit_on_line (GitReader *reader, guint length, const gchar *line,
                     GitCommit *commit)
 {
-  GitCommitPrivate *priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
   gboolean ret = TRUE;
 
   if (priv->got_parents)
@@ -353,11 +364,9 @@ git_commit_on_line (GitReader *reader, guint length, const gchar *line,
 void
 git_commit_fetch_log_data (GitCommit *commit)
 {
-  GitCommitPrivate *priv;
-
   g_return_if_fail (GIT_IS_COMMIT (commit));
 
-  priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   if (!priv->has_log_data && priv->reader == NULL)
     {
@@ -391,7 +400,9 @@ git_commit_set_prop (GitCommit *commit, const gchar *prop_name,
 {
   g_return_if_fail (GIT_IS_COMMIT (commit));
 
-  g_hash_table_insert (commit->priv->props,
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  g_hash_table_insert (priv->props,
                        g_strdup (prop_name),
                        g_strdup (value));
 }
@@ -401,18 +412,19 @@ git_commit_get_prop (GitCommit *commit, const gchar *prop_name)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);
 
-  return g_hash_table_lookup (commit->priv->props, prop_name);
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
+
+  return g_hash_table_lookup (priv->props, prop_name);
 }
 
 void
 git_commit_get_color (GitCommit *commit, GdkRGBA *color)
 {
-  GitCommitPrivate *priv;
   int i;
 
   g_return_if_fail (GIT_IS_COMMIT (commit));
 
-  priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   guint16 bytes[3] = { 0, 0, 0 };
 
@@ -443,7 +455,7 @@ git_commit_get_color (GitCommit *commit, GdkRGBA *color)
 static void
 git_commit_unref_reader (GitCommit *commit)
 {
-  GitCommitPrivate *priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   if (priv->reader)
     {
@@ -457,7 +469,7 @@ git_commit_unref_reader (GitCommit *commit)
 static void
 git_commit_free_parents (GitCommit *commit)
 {
-  GitCommitPrivate *priv = commit->priv;
+  GitCommitPrivate *priv = git_commit_get_instance_private (commit);
 
   g_slist_foreach (priv->parents, (GFunc) g_object_unref, NULL);
   g_slist_free (priv->parents);
