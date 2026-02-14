@@ -150,6 +150,7 @@ git_hash_view_init (GitHashView *hview)
   GtkStyleContext *style_context =
     gtk_widget_get_style_context (GTK_WIDGET (hview));
   gtk_style_context_add_class (style_context, GTK_STYLE_CLASS_VIEW);
+  gtk_style_context_add_class (style_context, GTK_STYLE_CLASS_MONOSPACE);
 }
 
 static void

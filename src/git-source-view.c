@@ -128,6 +128,7 @@ git_source_view_init (GitSourceView *sview)
                       TRUE, /* fill */
                       0 /* padding */);
 
+  gtk_text_view_set_monospace (GTK_TEXT_VIEW (priv->text_view), TRUE);
   gtk_text_view_set_editable (GTK_TEXT_VIEW (priv->text_view), FALSE);
 
   gtk_widget_show (priv->text_view);
