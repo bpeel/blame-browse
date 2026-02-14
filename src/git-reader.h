@@ -22,30 +22,13 @@
 
 G_BEGIN_DECLS
 
-#define GIT_TYPE_READER                                                 \
-  (git_reader_get_type())
-#define GIT_READER(obj)                                                 \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                                   \
-                               GIT_TYPE_READER,                         \
-                               GitReader))
-#define GIT_READER_CLASS(klass)                                         \
-  (G_TYPE_CHECK_CLASS_CAST ((klass),                                    \
-                            GIT_TYPE_READER,                            \
-                            GitReaderClass))
-#define GIT_IS_READER(obj)                                              \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj),                                   \
-                               GIT_TYPE_READER))
-#define GIT_IS_READER_CLASS(klass)                                      \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass),                                    \
-                            GIT_TYPE_READER))
-#define GIT_READER_GET_CLASS(obj)                                       \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj),                                    \
-                              GIT_TYPE_READER,                          \
-                              GitReaderClass))
+#define GIT_TYPE_READER git_reader_get_type()
 
-typedef struct _GitReader        GitReader;
-typedef struct _GitReaderClass   GitReaderClass;
-typedef struct _GitReaderPrivate GitReaderPrivate;
+G_DECLARE_DERIVABLE_TYPE (GitReader,
+                          git_reader,
+                          GIT,
+                          READER,
+                          GObject);
 
 struct _GitReaderClass
 {
@@ -54,15 +37,6 @@ struct _GitReaderClass
   void (* completed) (GitReader *reader, const GError *error);
   gboolean (* line) (GitReader *reader, guint length, const gchar *line);
 };
-
-struct _GitReader
-{
-  GObject parent;
-
-  GitReaderPrivate *priv;
-};
-
-GType git_reader_get_type (void) G_GNUC_CONST;
 
 GitReader *git_reader_new (void);
 

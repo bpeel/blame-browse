@@ -35,13 +35,7 @@ static void git_reader_finalize (GObject *object);
 static gboolean git_reader_default_line (GitReader *reader,
                                          guint length, const gchar *string);
 
-G_DEFINE_TYPE (GitReader, git_reader, G_TYPE_OBJECT);
-
-#define GIT_READER_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_READER, \
-                                GitReaderPrivate))
-
-struct _GitReaderPrivate
+typedef struct
 {
   gboolean has_child;
   GPid child_pid;
@@ -53,7 +47,11 @@ struct _GitReaderPrivate
   gint child_exit_code;
   GString *error_string;
   GString *line_string;
-};
+} GitReaderPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE (GitReader,
+                            git_reader,
+                            G_TYPE_OBJECT);
 
 enum
   {
@@ -94,26 +92,22 @@ git_reader_class_init (GitReaderClass *klass)
                     G_TYPE_BOOLEAN, 2,
                     G_TYPE_UINT,
                     G_TYPE_STRING);
-
-  g_type_class_add_private (klass, sizeof (GitReaderPrivate));
 }
 
 static void
 git_reader_init (GitReader *self)
 {
-  GitReaderPrivate *priv;
-
-  priv = self->priv = GIT_READER_GET_PRIVATE (self);
+  GitReaderPrivate *priv = git_reader_get_instance_private (self);
 
   priv->error_string = g_string_new ("");
   priv->line_string = g_string_new ("");
 }
 
 static void
-git_reader_close_process (GitReader *source,
+git_reader_close_process (GitReader *reader,
                           gboolean kill_child)
 {
-  GitReaderPrivate *priv = source->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
 
   if (priv->has_child)
     {
@@ -173,9 +167,10 @@ static void
 git_reader_finalize (GObject *object)
 {
   GitReader *self = (GitReader *) object;
+  GitReaderPrivate *priv = git_reader_get_instance_private (self);
 
-  g_string_free (self->priv->error_string, TRUE);
-  g_string_free (self->priv->line_string, TRUE);
+  g_string_free (priv->error_string, TRUE);
+  g_string_free (priv->line_string, TRUE);
 
   G_OBJECT_CLASS (git_reader_parent_class)->finalize (object);
 }
@@ -199,7 +194,7 @@ git_reader_new (void)
 static void
 git_reader_check_complete (GitReader *reader)
 {
-  GitReaderPrivate *priv = reader->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
 
   g_object_ref (reader);
 
@@ -257,7 +252,7 @@ git_reader_check_complete (GitReader *reader)
 static gboolean
 git_reader_check_lines (GitReader *reader)
 {
-  GitReaderPrivate *priv = reader->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
   gboolean line_return = TRUE;
   gchar *start = priv->line_string->str, *end;
   gsize len = priv->line_string->len;
@@ -295,7 +290,7 @@ static void
 git_reader_on_child_exit (GPid pid, gint status, gpointer data)
 {
   GitReader *reader = (GitReader *) data;
-  GitReaderPrivate *priv = reader->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
 
   g_spawn_close_pid (pid);
   priv->child_pid = 0;
@@ -320,7 +315,7 @@ git_reader_on_child_stdout (GIOChannel *io_source,
                             GIOCondition condition, gpointer data)
 {
   GitReader *reader = (GitReader *) data;
-  GitReaderPrivate *priv = reader->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
   GError *error = NULL;
   gchar buf[512];
   gsize bytes_read;
@@ -357,7 +352,7 @@ git_reader_on_child_stderr (GIOChannel *io_source,
                             GIOCondition condition, gpointer data)
 {
   GitReader *reader = (GitReader *) data;
-  GitReaderPrivate *priv = reader->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
   GError *error = NULL;
   gchar buf[512];
   gsize bytes_read;
@@ -394,7 +389,6 @@ git_reader_start (GitReader *reader,
                   GError **error,
                   ...)
 {
-  GitReaderPrivate *priv;
   gchar **args;
   const gchar *arg;
   gboolean spawn_ret;
@@ -405,7 +399,7 @@ git_reader_start (GitReader *reader,
   g_return_val_if_fail (GIT_IS_READER (reader), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
 
-  priv = reader->priv;
+  GitReaderPrivate *priv = git_reader_get_instance_private (reader);
 
   git_reader_close_process (reader, TRUE);
 
