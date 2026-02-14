@@ -39,13 +39,7 @@ git_annotated_source_on_line (GitReader *reader,
                               guint length, const gchar *str,
                               GitAnnotatedSource *source);
 
-G_DEFINE_TYPE (GitAnnotatedSource, git_annotated_source, G_TYPE_OBJECT);
-
-#define GIT_ANNOTATED_SOURCE_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_ANNOTATED_SOURCE, \
-                                GitAnnotatedSourcePrivate))
-
-struct _GitAnnotatedSourcePrivate
+typedef struct
 {
   GitReader *reader;
   guint completed_handler;
@@ -55,7 +49,11 @@ struct _GitAnnotatedSourcePrivate
   GitAnnotatedSourceLine current_line;
 
   gchar *repo;
-};
+} GitAnnotatedSourcePrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE (GitAnnotatedSource,
+                            git_annotated_source,
+                            G_TYPE_OBJECT);
 
 enum
   {
@@ -83,16 +81,13 @@ git_annotated_source_class_init (GitAnnotatedSourceClass *klass)
                     g_cclosure_marshal_VOID__POINTER,
                     G_TYPE_NONE, 1,
                     G_TYPE_POINTER);
-
-  g_type_class_add_private (klass, sizeof (GitAnnotatedSourcePrivate));
 }
 
 static void
 git_annotated_source_init (GitAnnotatedSource *self)
 {
-  GitAnnotatedSourcePrivate *priv;
-
-  priv = self->priv = GIT_ANNOTATED_SOURCE_GET_PRIVATE (self);
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (self);
 
   priv->reader = git_reader_new ();
 
@@ -114,7 +109,8 @@ git_annotated_source_init (GitAnnotatedSource *self)
 static void
 git_annotated_source_clear_lines (GitAnnotatedSource *source)
 {
-  GitAnnotatedSourcePrivate *priv = source->priv;
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (source);
   int i;
 
   for (i = 0; i < priv->lines->len; i++)
@@ -144,7 +140,8 @@ static void
 git_annotated_source_dispose (GObject *object)
 {
   GitAnnotatedSource *self = (GitAnnotatedSource *) object;
-  GitAnnotatedSourcePrivate *priv = self->priv;
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (self);
 
   if (priv->reader)
     {
@@ -161,7 +158,8 @@ static void
 git_annotated_source_finalize (GObject *object)
 {
   GitAnnotatedSource *self = (GitAnnotatedSource *) object;
-  GitAnnotatedSourcePrivate *priv = self->priv;
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (self);
 
   git_annotated_source_clear_lines (self);
   g_array_free (priv->lines, TRUE);
@@ -184,10 +182,11 @@ const GitAnnotatedSourceLine *
 git_annotated_source_get_line (GitAnnotatedSource *source,
                                gsize line_num)
 {
-  GitAnnotatedSourcePrivate *priv;
-
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), NULL);
-  priv = source->priv;
+
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (source);
+
   g_return_val_if_fail (line_num >= 0 && line_num < priv->lines->len, NULL);
 
   return &g_array_index (priv->lines, GitAnnotatedSourceLine, line_num);
@@ -196,11 +195,10 @@ git_annotated_source_get_line (GitAnnotatedSource *source,
 gsize
 git_annotated_source_get_n_lines (GitAnnotatedSource *source)
 {
-  GitAnnotatedSourcePrivate *priv;
-
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), 0);
 
-  priv = source->priv;
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (source);
 
   return priv->lines->len;
 }
@@ -211,16 +209,17 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
                             const gchar *revision,
                             GError **error)
 {
-  GitAnnotatedSourcePrivate *priv;
   gchar *repo, *base_part;
   gboolean ret;
 
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), FALSE);
   g_return_val_if_fail (error == NULL || *error == NULL, FALSE);
-  g_return_val_if_fail (source->priv->reader != NULL, FALSE);
-  g_return_val_if_fail (filename != NULL, FALSE);
 
-  priv = source->priv;
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (source);
+
+  g_return_val_if_fail (priv->reader != NULL, FALSE);
+  g_return_val_if_fail (filename != NULL, FALSE);
 
   git_annotated_source_clear_lines (source);
 
@@ -265,9 +264,12 @@ git_annotated_source_on_reader_completed (GitReader *reader,
                                           const GError *error,
                                           GitAnnotatedSource *source)
 {
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (source);
+
   /* If we've got a commit for the current line then we must be
      missing the actual code for the line so the output is invalid */
-  if (source->priv->current_line.commit)
+  if (priv->current_line.commit)
     git_annotated_source_parse_error (source);
   else
     g_signal_emit (source, client_signals[COMPLETED], 0, error);
@@ -278,7 +280,8 @@ git_annotated_source_on_line (GitReader *reader,
                               guint length, const gchar *str,
                               GitAnnotatedSource *source)
 {
-  GitAnnotatedSourcePrivate *priv = source->priv;
+  GitAnnotatedSourcePrivate *priv =
+    git_annotated_source_get_instance_private (source);
   int i;
   const gchar *p = str;
   gboolean ret = TRUE;
