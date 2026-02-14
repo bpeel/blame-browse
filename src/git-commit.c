@@ -266,8 +266,7 @@ git_commit_on_completed (GitReader *reader, const GError *error,
     }
   else
     {
-      priv->log_data = priv->log_buf->str;
-      g_string_free (priv->log_buf, FALSE);
+      priv->log_data = g_string_free (priv->log_buf, FALSE);
       priv->log_buf = NULL;
     }
 
