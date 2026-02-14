@@ -23,48 +23,17 @@
 
 G_BEGIN_DECLS
 
-#define GIT_TYPE_COMMIT_DIALOG                                          \
-  (git_commit_dialog_get_type())
-#define GIT_COMMIT_DIALOG(obj)                                          \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                                   \
-                               GIT_TYPE_COMMIT_DIALOG,                  \
-                               GitCommitDialog))
-#define GIT_COMMIT_DIALOG_CLASS(klass)                                  \
-  (G_TYPE_CHECK_CLASS_CAST ((klass),                                    \
-                            GIT_TYPE_COMMIT_DIALOG,                     \
-                            GitCommitDialogClass))
-#define GIT_IS_COMMIT_DIALOG(obj)                                       \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj),                                   \
-                               GIT_TYPE_COMMIT_DIALOG))
-#define GIT_IS_COMMIT_DIALOG_CLASS(klass)                               \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass),                                    \
-                            GIT_TYPE_COMMIT_DIALOG))
-#define GIT_COMMIT_DIALOG_GET_CLASS(obj)                                \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj),                                    \
-                              GIT_TYPE_COMMIT_DIALOG,                   \
-                              GitCommitDialogClass))
+#define GIT_TYPE_COMMIT_DIALOG git_commit_dialog_get_type ()
 
-typedef struct _GitCommitDialog        GitCommitDialog;
-typedef struct _GitCommitDialogClass   GitCommitDialogClass;
-typedef struct _GitCommitDialogPrivate GitCommitDialogPrivate;
-
-struct _GitCommitDialogClass
-{
-  GtkDialogClass parent_class;
-};
-
-struct _GitCommitDialog
-{
-  GtkDialog parent;
-
-  GitCommitDialogPrivate *priv;
-};
+G_DECLARE_FINAL_TYPE (GitCommitDialog,
+                      git_commit_dialog,
+                      GIT,
+                      COMMIT_DIALOG,
+                      GtkDialog);
 
 enum {
   GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
 };
-
-GType git_commit_dialog_get_type (void) G_GNUC_CONST;
 
 GtkWidget *git_commit_dialog_new (void);
 

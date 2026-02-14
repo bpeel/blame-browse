@@ -40,20 +40,23 @@ static void git_commit_dialog_unref_buttons (GitCommitDialog *cdiag);
 
 typedef struct _GitCommitDialogButtonData GitCommitDialogButtonData;
 
-G_DEFINE_TYPE (GitCommitDialog, git_commit_dialog, GTK_TYPE_DIALOG);
+struct _GitCommitDialog
+{
+  GtkDialog parent;
+};
 
-#define GIT_COMMIT_DIALOG_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_COMMIT_DIALOG, \
-                                GitCommitDialogPrivate))
-
-struct _GitCommitDialogPrivate
+typedef struct
 {
   GitCommit *commit;
   guint has_log_data_handler;
   GitCommitDialogButtonData *buttons;
 
   GtkWidget *table, *log_view;
-};
+} GitCommitDialogPrivate;
+
+G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitDialog,
+                                  git_commit_dialog,
+                                  GTK_TYPE_DIALOG);
 
 struct _GitCommitDialogButtonData
 {
@@ -86,17 +89,13 @@ git_commit_dialog_class_init (GitCommitDialogClass *klass)
                                GIT_TYPE_COMMIT,
                                G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_COMMIT, pspec);
-
-  g_type_class_add_private (klass, sizeof (GitCommitDialogPrivate));
 }
 
 static void
 git_commit_dialog_init (GitCommitDialog *self)
 {
-  GitCommitDialogPrivate *priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (self);
   GtkWidget *content, *scrolled_window;
-
-  priv = self->priv = GIT_COMMIT_DIALOG_GET_PRIVATE (self);
 
   gtk_container_set_border_width (GTK_CONTAINER (self), 5);
 
@@ -146,7 +145,7 @@ git_commit_dialog_init (GitCommitDialog *self)
 static void
 git_commit_dialog_unref_commit (GitCommitDialog *cdiag)
 {
-  GitCommitDialogPrivate *priv = cdiag->priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
 
   if (priv->commit)
     {
@@ -160,7 +159,7 @@ git_commit_dialog_unref_commit (GitCommitDialog *cdiag)
 static void
 git_commit_dialog_unref_buttons (GitCommitDialog *cdiag)
 {
-  GitCommitDialogPrivate *priv = cdiag->priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
   GitCommitDialogButtonData *bdata, *next;
 
   for (bdata = priv->buttons; bdata; bdata = next)
@@ -179,7 +178,7 @@ static void
 git_commit_dialog_dispose (GObject *object)
 {
   GitCommitDialog *self = (GitCommitDialog *) object;
-  GitCommitDialogPrivate *priv = self->priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (self);
 
   git_commit_dialog_unref_commit (self);
 
@@ -220,7 +219,7 @@ git_commit_dialog_on_commit_selected (GtkButton *button, GitCommitDialog *cdiag)
 static void
 git_commit_dialog_add_commit_button (GitCommitDialog *cdiag, GtkWidget *widget)
 {
-  GitCommitDialogPrivate *priv = cdiag->priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
   GitCommitDialogButtonData *bdata = g_slice_new (GitCommitDialogButtonData);
 
   bdata->button = g_object_ref_sink (widget);
@@ -236,7 +235,7 @@ git_commit_dialog_add_commit_button (GitCommitDialog *cdiag, GtkWidget *widget)
 static void
 git_commit_dialog_update (GitCommitDialog *cdiag)
 {
-  GitCommitDialogPrivate *priv = cdiag->priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
   GtkWidget *widget;
 
   git_commit_dialog_unref_buttons (cdiag);
@@ -328,12 +327,10 @@ void
 git_commit_dialog_set_commit (GitCommitDialog *cdiag,
                               GitCommit *commit)
 {
-  GitCommitDialogPrivate *priv;
-
   g_return_if_fail (GIT_IS_COMMIT_DIALOG (cdiag));
   g_return_if_fail (commit == NULL || GIT_IS_COMMIT (commit));
 
-  priv = cdiag->priv;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
 
   if (commit)
     g_object_ref (commit);
@@ -361,7 +358,9 @@ git_commit_dialog_get_commit (GitCommitDialog *cdiag)
 {
   g_return_val_if_fail (GIT_IS_COMMIT_DIALOG (cdiag), NULL);
 
-  return cdiag->priv->commit;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
+
+  return priv->commit;
 }
 
 static void
