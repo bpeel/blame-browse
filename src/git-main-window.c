@@ -126,7 +126,7 @@ static void
 git_main_window_init (GitMainWindow *self)
 {
   GitMainWindowPrivate *priv = git_main_window_get_instance_private (self);
-  GtkWidget *layout, *scrolled_win;
+  GtkWidget *layout;
   GtkUIManager *ui_manager;
 
   layout = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
@@ -186,11 +186,6 @@ git_main_window_init (GitMainWindow *self)
       g_object_unref (ui_manager);
     }
 
-  scrolled_win = gtk_scrolled_window_new (NULL, NULL);
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_win),
-                                  GTK_POLICY_AUTOMATIC,
-                                  GTK_POLICY_AUTOMATIC);
-
   priv->source_view = g_object_ref_sink (git_source_view_new ());
   priv->source_state_handler = g_signal_connect_swapped
     (priv->source_view, "notify::state",
@@ -199,10 +194,7 @@ git_main_window_init (GitMainWindow *self)
     (priv->source_view, "commit-selected",
      G_CALLBACK (git_main_window_on_commit_selected), self);
   gtk_widget_show (priv->source_view);
-  gtk_container_add (GTK_CONTAINER (scrolled_win), priv->source_view);
-
-  gtk_widget_show (scrolled_win);
-  gtk_box_pack_start (GTK_BOX (layout), scrolled_win, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (layout), priv->source_view, TRUE, TRUE, 0);
 
   priv->statusbar = g_object_ref_sink (gtk_statusbar_new ());
   priv->source_state_context

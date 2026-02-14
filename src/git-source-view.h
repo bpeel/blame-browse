@@ -29,11 +29,11 @@ G_DECLARE_DERIVABLE_TYPE (GitSourceView,
                           git_source_view,
                           GIT,
                           SOURCE_VIEW,
-                          GtkWidget);
+                          GtkBox);
 
 struct _GitSourceViewClass
 {
-  GtkWidgetClass parent_class;
+  GtkBoxClass parent_class;
 
   void (* commit_selected) (GitSourceView *source_view,
                             GitCommit *commit);
