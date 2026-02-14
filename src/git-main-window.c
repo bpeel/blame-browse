@@ -129,7 +129,7 @@ git_main_window_init (GitMainWindow *self)
   GtkWidget *layout, *scrolled_win;
   GtkUIManager *ui_manager;
 
-  layout = gtk_vbox_new (FALSE, 0);
+  layout = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
 
   if ((ui_manager = git_main_window_create_ui_manager ()))
     {
