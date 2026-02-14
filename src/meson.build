@@ -5,6 +5,7 @@ src = [
         'git-commit-dialog.c',
         'git-commit-link-button.c',
         'git-common.c',
+        'git-hash-view.c',
         'git-main-window.c',
         'git-reader.c',
         'git-source-view.c',

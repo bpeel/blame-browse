@@ -24,6 +24,7 @@
 #include <stdlib.h>
 
 #include "git-source-view.h"
+#include "git-hash-view.h"
 #include "git-annotated-source.h"
 #include "git-marshal.h"
 #include "git-common.h"
@@ -34,15 +35,20 @@ static void git_source_view_destroy (GtkWidget *widget);
 static void git_source_view_get_property (GObject *object, guint property_id,
                                           GValue *value, GParamSpec *pspec);
 
+static void git_source_view_on_commit_selected (GitHashView *source,
+                                                GitCommit *commit,
+                                                GitSourceView *sview);
+
 typedef struct
 {
   GitAnnotatedSource *paint_source, *load_source;
   guint loading_completed_handler;
+  guint commit_selected_handler;
 
   GitSourceViewState state;
   GError *state_error;
 
-  GtkWidget *text_view;
+  GtkWidget *text_view, *hash_view;
 } GitSourceViewPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GitSourceView,
@@ -108,6 +114,20 @@ git_source_view_init (GitSourceView *sview)
   priv->text_view = gtk_text_view_new ();
   g_object_ref_sink (priv->text_view);
 
+  priv->hash_view = git_hash_view_new (GTK_TEXT_VIEW (priv->text_view));
+  g_object_ref_sink (priv->hash_view);
+
+  priv->commit_selected_handler
+    = g_signal_connect (priv->hash_view, "commit-selected",
+                        G_CALLBACK (git_source_view_on_commit_selected), sview);
+
+  gtk_widget_show (priv->hash_view);
+  gtk_box_pack_start (GTK_BOX (sview),
+                      priv->hash_view,
+                      FALSE, /* expand */
+                      TRUE, /* fill */
+                      0 /* padding */);
+
   gtk_text_view_set_editable (GTK_TEXT_VIEW (priv->text_view), FALSE);
 
   gtk_widget_show (priv->text_view);
@@ -151,6 +171,14 @@ git_source_view_unref_children (GitSourceView *sview)
     {
       g_object_unref (priv->text_view);
       priv->text_view = NULL;
+    }
+
+  if (priv->hash_view)
+    {
+      g_signal_handler_disconnect (priv->hash_view,
+                                   priv->commit_selected_handler);
+      g_object_unref (priv->hash_view);
+      priv->hash_view = NULL;
     }
 }
 
@@ -261,6 +289,17 @@ copy_source_to_text_view (GtkTextView *text_view,
 }
 
 static void
+git_source_view_on_commit_selected (GitHashView *source,
+                                    GitCommit *commit,
+                                    GitSourceView *sview)
+{
+  g_signal_emit (sview,
+                 client_signals[COMMIT_SELECTED],
+                 0,
+                 commit);
+}
+
+static void
 git_source_view_on_completed (GitAnnotatedSource *source,
                               const GError *error,
                               GitSourceView *sview)
@@ -279,6 +318,9 @@ git_source_view_on_completed (GitAnnotatedSource *source,
 
       if (priv->text_view)
         copy_source_to_text_view (GTK_TEXT_VIEW (priv->text_view), source);
+
+      if (priv->hash_view)
+        git_hash_view_set_source (GIT_HASH_VIEW (priv->hash_view), source);
 
       git_source_view_set_state (sview, GIT_SOURCE_VIEW_READY, NULL);
     }
