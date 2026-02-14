@@ -241,6 +241,7 @@ GtkWidget *
 git_source_view_new (void)
 {
   GtkWidget *widget = g_object_new (GIT_TYPE_SOURCE_VIEW,
+                                    "spacing", 3,
                                     "orientation", GTK_ORIENTATION_HORIZONTAL,
                                     NULL);
 
