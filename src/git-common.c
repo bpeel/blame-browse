@@ -20,11 +20,11 @@
 #include "config.h"
 
 #include <glib.h>
+#include <glib/gi18n.h>
 #include <gtk/gtk.h>
 #include <string.h>
 
 #include "git-common.h"
-#include "intl.h"
 
 GQuark
 git_error_quark (void)

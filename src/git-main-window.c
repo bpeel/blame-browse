@@ -18,13 +18,13 @@
 #include "config.h"
 
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
 #include <string.h>
 
 #include "git-main-window.h"
 #include "git-source-view.h"
 #include "git-commit-dialog.h"
 #include "git-common.h"
-#include "intl.h"
 
 typedef struct _GitMainWindowHistoryItem GitMainWindowHistoryItem;
 

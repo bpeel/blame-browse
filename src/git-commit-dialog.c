@@ -18,10 +18,10 @@
 #include "config.h"
 
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
 
 #include "git-commit-dialog.h"
 #include "git-commit-link-button.h"
-#include "intl.h"
 
 static void git_commit_dialog_dispose (GObject *object);
 
