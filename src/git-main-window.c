@@ -56,13 +56,12 @@ static void git_main_window_on_forward (GtkAction *action,
 static void git_main_window_on_revision (GtkEntry *entry,
                                          GitMainWindow *main_window);
 
-G_DEFINE_TYPE (GitMainWindow, git_main_window, GTK_TYPE_WINDOW);
+struct _GitMainWindow
+{
+  GtkWindow parent;
+};
 
-#define GIT_MAIN_WINDOW_GET_PRIVATE(obj) \
-  (G_TYPE_INSTANCE_GET_PRIVATE ((obj), GIT_TYPE_MAIN_WINDOW, \
-                                GitMainWindowPrivate))
-
-struct _GitMainWindowPrivate
+typedef struct
 {
   GtkWidget *revision_bar, *source_view, *statusbar;
   GtkWidget *commit_dialog, *file_dialog;
@@ -79,7 +78,11 @@ struct _GitMainWindowPrivate
   GList *history_pos;
 
   GtkAction *back_action, *forward_action;
-};
+} GitMainWindowPrivate;
+
+G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitMainWindow,
+                                  git_main_window,
+                                  GTK_TYPE_WINDOW);
 
 struct _GitMainWindowHistoryItem
 {
@@ -117,18 +120,14 @@ git_main_window_class_init (GitMainWindowClass *klass)
 
   gobject_class->dispose = git_main_window_dispose;
   gobject_class->finalize = git_main_window_finalize;
-
-  g_type_class_add_private (klass, sizeof (GitMainWindowPrivate));
 }
 
 static void
 git_main_window_init (GitMainWindow *self)
 {
-  GitMainWindowPrivate *priv;
+  GitMainWindowPrivate *priv = git_main_window_get_instance_private (self);
   GtkWidget *layout, *scrolled_win;
   GtkUIManager *ui_manager;
-
-  priv = self->priv = GIT_MAIN_WINDOW_GET_PRIVATE (self);
 
   layout = gtk_vbox_new (FALSE, 0);
 
@@ -223,7 +222,7 @@ static void
 git_main_window_dispose (GObject *object)
 {
   GitMainWindow *self = (GitMainWindow *) object;
-  GitMainWindowPrivate *priv = self->priv;
+  GitMainWindowPrivate *priv = git_main_window_get_instance_private (self);
 
   if (priv->source_view)
     {
@@ -281,7 +280,7 @@ static void
 git_main_window_finalize (GObject *object)
 {
   GitMainWindow *self = (GitMainWindow *) object;
-  GitMainWindowPrivate *priv = self->priv;
+  GitMainWindowPrivate *priv = git_main_window_get_instance_private (self);
 
   g_list_foreach (priv->history, (GFunc) git_main_window_free_history_item,
                   NULL);
@@ -305,9 +304,8 @@ git_main_window_do_set_file (GitMainWindow *main_window,
                              const gchar *filename,
                              const gchar *revision)
 {
-  GitMainWindowPrivate *priv;
-
-  priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->source_view)
     git_source_view_set_file (GIT_SOURCE_VIEW (priv->source_view),
@@ -333,10 +331,9 @@ git_main_window_add_history (GitMainWindow *main_window,
                              const gchar *filename,
                              const gchar *revision)
 {
-  GitMainWindowPrivate *priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
   GitMainWindowHistoryItem *item;
-
-  priv = main_window->priv;
 
   item = g_slice_new (GitMainWindowHistoryItem);
   item->filename = g_strdup (filename);
@@ -366,12 +363,11 @@ git_main_window_set_file (GitMainWindow *main_window,
                           const gchar *filename,
                           const gchar *revision)
 {
-  GitMainWindowPrivate *priv;
-
   g_return_if_fail (GIT_IS_MAIN_WINDOW (main_window));
   g_return_if_fail (filename != NULL);
 
-  priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   git_main_window_do_set_file (main_window, filename, revision);
 
@@ -384,7 +380,8 @@ git_main_window_set_file (GitMainWindow *main_window,
 static void
 git_main_window_update_source_state (GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->statusbar && priv->source_view)
     {
@@ -433,7 +430,8 @@ git_main_window_update_source_state (GitMainWindow *main_window)
 static void
 git_main_window_update_history_actions (GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->back_action)
     gtk_action_set_sensitive (priv->back_action,
@@ -451,7 +449,8 @@ static void
 git_main_window_on_commit_response (GtkDialog *dialog, gint response,
                                     GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (response == GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
       && priv->history_pos)
@@ -474,7 +473,8 @@ git_main_window_on_commit_selected (GitSourceView *sview,
                                     GitCommit *commit,
                                     GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->commit_dialog == NULL)
     {
@@ -554,7 +554,8 @@ static void
 git_main_window_on_open (GtkAction *action,
                          GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->file_dialog == NULL)
     {
@@ -640,7 +641,8 @@ static void
 git_main_window_on_back (GtkAction *action,
                          GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->history_pos && priv->history_pos->prev)
     {
@@ -657,7 +659,8 @@ static void
 git_main_window_on_forward (GtkAction *action,
                             GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->history_pos && priv->history_pos->next)
     {
@@ -674,7 +677,8 @@ static void
 git_main_window_on_revision (GtkEntry *entry,
                              GitMainWindow *main_window)
 {
-  GitMainWindowPrivate *priv = main_window->priv;
+  GitMainWindowPrivate *priv =
+    git_main_window_get_instance_private (main_window);
 
   if (priv->history_pos)
     {

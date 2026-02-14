@@ -22,44 +22,13 @@
 
 G_BEGIN_DECLS
 
-#define GIT_TYPE_MAIN_WINDOW                                            \
-  (git_main_window_get_type())
-#define GIT_MAIN_WINDOW(obj)                                            \
-  (G_TYPE_CHECK_INSTANCE_CAST ((obj),                                   \
-                               GIT_TYPE_MAIN_WINDOW,                    \
-                               GitMainWindow))
-#define GIT_MAIN_WINDOW_CLASS(klass)                                    \
-  (G_TYPE_CHECK_CLASS_CAST ((klass),                                    \
-                            GIT_TYPE_MAIN_WINDOW,                       \
-                            GitMainWindowClass))
-#define GIT_IS_MAIN_WINDOW(obj)                                         \
-  (G_TYPE_CHECK_INSTANCE_TYPE ((obj),                                   \
-                               GIT_TYPE_MAIN_WINDOW))
-#define GIT_IS_MAIN_WINDOW_CLASS(klass)                                 \
-  (G_TYPE_CHECK_CLASS_TYPE ((klass),                                    \
-                            GIT_TYPE_MAIN_WINDOW))
-#define GIT_MAIN_WINDOW_GET_CLASS(obj)                                  \
-  (G_TYPE_INSTANCE_GET_CLASS ((obj),                                    \
-                              GIT_TYPE_MAIN_WINDOW,                     \
-                              GitMainWindowClass))
+#define GIT_TYPE_MAIN_WINDOW git_main_window_get_type ()
 
-typedef struct _GitMainWindow        GitMainWindow;
-typedef struct _GitMainWindowClass   GitMainWindowClass;
-typedef struct _GitMainWindowPrivate GitMainWindowPrivate;
-
-struct _GitMainWindowClass
-{
-  GtkWindowClass parent_class;
-};
-
-struct _GitMainWindow
-{
-  GtkWindow parent;
-
-  GitMainWindowPrivate *priv;
-};
-
-GType git_main_window_get_type (void) G_GNUC_CONST;
+G_DECLARE_FINAL_TYPE (GitMainWindow,
+                      git_main_window,
+                      GIT,
+                      MAIN_WINDOW,
+                      GtkWindow);
 
 GtkWidget *git_main_window_new (void);
 
