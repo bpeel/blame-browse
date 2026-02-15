@@ -38,6 +38,8 @@ static void git_commit_dialog_update (GitCommitDialog *cdiag);
 
 static void git_commit_dialog_unref_buttons (GitCommitDialog *cdiag);
 
+static void git_commit_dialog_copy_hash (GitCommitDialog *cdiag);
+
 typedef struct _GitCommitDialogButtonData GitCommitDialogButtonData;
 
 struct _GitCommitDialog
@@ -51,7 +53,10 @@ typedef struct
   guint has_log_data_handler;
   GitCommitDialogButtonData *buttons;
 
-  GtkWidget *grid, *log_view;
+  GtkWidget *grid, *log_view, *commit_label;
+
+  guint copy_handler;
+  GtkWidget *copy_button;
 } GitCommitDialogPrivate;
 
 G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitDialog,
@@ -101,6 +106,35 @@ git_commit_dialog_init (GitCommitDialog *self)
 
   priv->grid = g_object_ref_sink (gtk_grid_new ());
   gtk_grid_set_column_spacing (GTK_GRID (priv->grid), 5);
+
+  /* Labels for the commit hash */
+  GtkWidget *label = gtk_label_new (NULL);
+  g_object_set (label, "use-markup", TRUE,
+                "label", _("<b>Commit</b>"),
+                "xalign", 0.0f,
+                NULL);
+  gtk_widget_show (label);
+  gtk_grid_attach (GTK_GRID (priv->grid), label, 0, 0, 1, 1);
+
+  priv->commit_label = g_object_ref_sink (gtk_label_new (NULL));
+  gtk_widget_show (priv->commit_label);
+  gtk_grid_attach (GTK_GRID (priv->grid),
+                   priv->commit_label,
+                   1, 0, 1, 1);
+
+  priv->copy_button = gtk_button_new_from_icon_name ("edit-copy",
+                                                     GTK_ICON_SIZE_BUTTON);
+  g_object_ref_sink (priv->copy_button);
+  priv->copy_handler =
+    g_signal_connect_swapped (priv->copy_button,
+                              "clicked",
+                              G_CALLBACK (git_commit_dialog_copy_hash),
+                              self);
+  gtk_widget_show (priv->copy_button);
+  gtk_grid_attach (GTK_GRID (priv->grid),
+                   priv->copy_button,
+                   2, 0, 1, 1);
+
   gtk_widget_show (priv->grid);
 
   content = gtk_box_new (GTK_ORIENTATION_VERTICAL, 11);
@@ -194,6 +228,19 @@ git_commit_dialog_dispose (GObject *object)
       priv->log_view = NULL;
     }
 
+  if (priv->commit_label)
+    {
+      g_object_unref (priv->commit_label);
+      priv->commit_label = NULL;
+    }
+
+  if (priv->copy_button)
+    {
+      g_signal_handler_disconnect (priv->copy_button, priv->copy_handler);
+      g_object_unref (priv->copy_button);
+      priv->copy_button = NULL;
+    }
+
   git_commit_dialog_unref_buttons (self);
 
   G_OBJECT_CLASS (git_commit_dialog_parent_class)->dispose (object);
@@ -233,6 +280,19 @@ git_commit_dialog_add_commit_button (GitCommitDialog *cdiag, GtkWidget *widget)
 }
 
 static void
+remove_if_parent_commit (GtkWidget *widget,
+                         gpointer data)
+{
+  GtkContainer *container = data;
+  int top_attach;
+
+  gtk_container_child_get (container, widget, "top-attach", &top_attach, NULL);
+
+  if (top_attach > 0)
+    gtk_widget_destroy (widget);
+}
+
+static void
 git_commit_dialog_update (GitCommitDialog *cdiag)
 {
   GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
@@ -240,60 +300,48 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
 
   git_commit_dialog_unref_buttons (cdiag);
 
+  if (priv->commit_label)
+    {
+      gtk_label_set_text (GTK_LABEL (priv->commit_label),
+                          priv->commit
+                          ? git_commit_get_hash (priv->commit)
+                          : "");
+    }
+
   if (priv->grid)
     {
       /* Remove all existing parent commit labels */
       gtk_container_foreach (GTK_CONTAINER (priv->grid),
-                             (GtkCallback) gtk_widget_destroy, NULL);
+                             remove_if_parent_commit,
+                             priv->grid);
 
-      if (priv->commit)
+      if (priv->commit && git_commit_get_has_log_data (priv->commit))
         {
-          /* Add a row for the commit's own hash */
-          widget = gtk_label_new (NULL);
-          g_object_set (widget, "use-markup", TRUE,
-                        "label", _("<b>Commit</b>"),
-                        "xalign", 0.0f,
-                        NULL);
-          gtk_widget_show (widget);
-          gtk_grid_attach (GTK_GRID (priv->grid),
-                           widget,
-                           0, 0, 1, 1);
+          const GSList *node;
+          int y = 1;
 
-          widget = git_commit_link_button_new (priv->commit);
-          git_commit_dialog_add_commit_button (cdiag, widget);
-          gtk_widget_show (widget);
-          gtk_grid_attach (GTK_GRID (priv->grid),
-                           widget,
-                           1, 0, 1, 1);
-
-          if (git_commit_get_has_log_data (priv->commit))
+          for (node = git_commit_get_parents (priv->commit);
+               node;
+               node = node->next, y++)
             {
-              const GSList *node;
-              int y = 1;
+              GitCommit *commit = (GitCommit *) node->data;
 
-              for (node = git_commit_get_parents (priv->commit);
-                   node;
-                   node = node->next, y++)
-                {
-                  GitCommit *commit = (GitCommit *) node->data;
+              widget = gtk_label_new (NULL);
+              g_object_set (widget, "use-markup", TRUE,
+                            "label", _("<b>Parent</b>"),
+                            "xalign", 0.0f,
+                            NULL);
+              gtk_widget_show (widget);
+              gtk_grid_attach (GTK_GRID (priv->grid),
+                               widget,
+                               0, y, 1, 1);
 
-                  widget = gtk_label_new (NULL);
-                  g_object_set (widget, "use-markup", TRUE,
-                                "label", _("<b>Parent</b>"),
-                                "xalign", 0.0f,
-                                NULL);
-                  gtk_widget_show (widget);
-                  gtk_grid_attach (GTK_GRID (priv->grid),
-                                   widget,
-                                   0, y, 1, 1);
-
-                  widget = git_commit_link_button_new (commit);
-                  git_commit_dialog_add_commit_button (cdiag, widget);
-                  gtk_widget_show (widget);
-                  gtk_grid_attach (GTK_GRID (priv->grid),
-                                   widget,
-                                   1, y, 1, 1);
-                }
+              widget = git_commit_link_button_new (commit);
+              git_commit_dialog_add_commit_button (cdiag, widget);
+              gtk_widget_show (widget);
+              gtk_grid_attach (GTK_GRID (priv->grid),
+                               widget,
+                               1, y, 2, 1);
             }
         }
     }
@@ -389,5 +437,25 @@ git_commit_dialog_get_property (GObject *object,
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
+    }
+}
+
+static void
+git_commit_dialog_copy_hash (GitCommitDialog *cdiag)
+{
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
+
+  if (priv->commit)
+    {
+      GdkDisplay *display = gtk_widget_get_display (GTK_WIDGET (cdiag));
+      GtkClipboard *clipboard =
+        gtk_clipboard_get_for_display(display, GDK_SELECTION_CLIPBOARD);
+
+      if (clipboard)
+        {
+          gtk_clipboard_set_text (clipboard,
+                                  git_commit_get_hash (priv->commit),
+                                  -1);
+        }
     }
 }
