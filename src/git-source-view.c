@@ -267,6 +267,29 @@ git_source_view_set_state (GitSourceView *sview,
 }
 
 static void
+copy_string_to_buffer (GtkTextBuffer *buffer, const char *s)
+{
+  while (*s)
+    {
+      const char *invalid;
+      gboolean is_valid = g_utf8_validate (s, -1, &invalid);
+
+      GtkTextIter iter;
+      gtk_text_buffer_get_end_iter (buffer, &iter);
+      gtk_text_buffer_insert (buffer, &iter, s, invalid - s);
+
+      if (is_valid)
+        break;
+
+      /* append U+FFFD REPLACEMENT CHARACTER */
+      gtk_text_buffer_get_end_iter (buffer, &iter);
+      gtk_text_buffer_insert (buffer, &iter, "\357\277\275", -1);
+
+      s = invalid + 1;
+    }
+}
+
+static void
 copy_source_to_text_view (GtkTextView *text_view,
                           GitAnnotatedSource *source)
 {
@@ -281,12 +304,10 @@ copy_source_to_text_view (GtkTextView *text_view,
 
   for (gsize i = 0; i < n_lines; i++)
     {
-      GtkTextIter iter;
       const GitAnnotatedSourceLine *line =
         git_annotated_source_get_line (source, i);
 
-      gtk_text_buffer_get_end_iter ( buffer, &iter);
-      gtk_text_buffer_insert (buffer, &iter, line->text, -1);
+      copy_string_to_buffer (buffer, line->text);
     }
 }
 
