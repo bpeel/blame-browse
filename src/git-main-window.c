@@ -569,28 +569,6 @@ git_main_window_on_open (GtkAction *action,
                             main_window);
     }
 
-  if (priv->history_pos)
-    {
-      GitMainWindowHistoryItem *item
-        = (GitMainWindowHistoryItem *) priv->history_pos->data;
-      gchar *dir = g_path_get_dirname (item->filename);
-
-      if (!g_path_is_absolute (dir))
-        {
-          gchar *current_dir = g_get_current_dir ();
-          gchar *full_dir = g_build_filename (current_dir, dir, NULL);
-
-          g_free (dir);
-          dir = full_dir;
-          g_free (current_dir);
-        }
-
-      gtk_file_chooser_set_current_folder (GTK_FILE_CHOOSER (priv->file_dialog),
-                                           dir);
-
-      g_free (dir);
-    }
-
   gtk_window_present (GTK_WINDOW (priv->file_dialog));
 }
 
