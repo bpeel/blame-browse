@@ -17,13 +17,14 @@
 
 #include "config.h"
 
+#include "git-source-view.h"
+
 #include <gtk/gtk.h>
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
 #include <stdlib.h>
 
-#include "git-source-view.h"
 #include "git-hash-view.h"
 #include "git-annotated-source.h"
 #include "git-marshal.h"

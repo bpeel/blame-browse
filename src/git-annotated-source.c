@@ -17,11 +17,12 @@
 
 #include "config.h"
 
+#include "git-annotated-source.h"
+
 #include <glib-object.h>
 #include <glib.h>
 #include <string.h>
 
-#include "git-annotated-source.h"
 #include "git-reader.h"
 #include "git-commit.h"
 #include "git-commit-bag.h"

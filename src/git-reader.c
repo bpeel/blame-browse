@@ -17,6 +17,8 @@
 
 #include "config.h"
 
+#include "git-reader.h"
+
 #include <glib-object.h>
 #include <glib.h>
 #include <sys/wait.h>
@@ -26,7 +28,6 @@
 #include <stdarg.h>
 #include <string.h>
 
-#include "git-reader.h"
 #include "git-common.h"
 #include "git-marshal.h"
 

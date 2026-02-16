@@ -17,9 +17,10 @@
 
 #include "config.h"
 
+#include "git-commit-link-button.h"
+
 #include <gtk/gtk.h>
 
-#include "git-commit-link-button.h"
 #include "git-commit.h"
 
 static void git_commit_link_button_dispose (GObject *object);

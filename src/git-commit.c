@@ -17,10 +17,11 @@
 
 #include "config.h"
 
+#include "git-commit.h"
+
 #include <glib-object.h>
 #include <string.h>
 
-#include "git-commit.h"
 #include "git-reader.h"
 #include "git-common.h"
 #include "git-commit-bag.h"

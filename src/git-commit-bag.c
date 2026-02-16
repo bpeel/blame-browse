@@ -17,9 +17,10 @@
 
 #include "config.h"
 
+#include "git-commit-bag.h"
+
 #include <glib-object.h>
 
-#include "git-commit-bag.h"
 #include "git-commit.h"
 
 static void git_commit_bag_dispose (GObject *object);
