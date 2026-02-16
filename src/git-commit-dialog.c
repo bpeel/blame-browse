@@ -172,7 +172,7 @@ git_commit_dialog_init (GitCommitDialog *self)
   gtk_dialog_add_buttons (GTK_DIALOG (self),
                           _("View _blame"),
                           GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME,
-                          GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE,
+                          dgettext("gtk30", "_Close"), GTK_RESPONSE_CLOSE,
                           NULL);
 }
 

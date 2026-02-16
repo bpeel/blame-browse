@@ -474,7 +474,8 @@ git_main_window_on_open (GSimpleAction *action,
         = gtk_file_chooser_dialog_new (_("Open File"),
                                        GTK_WINDOW (main_window),
                                        GTK_FILE_CHOOSER_ACTION_OPEN,
-                                       GTK_STOCK_OK, GTK_RESPONSE_OK,
+                                       dgettext ("gtk30", "_Open"),
+                                       GTK_RESPONSE_OK,
                                        NULL);
       g_object_ref_sink (priv->file_dialog);
 
