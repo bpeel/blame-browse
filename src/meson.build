@@ -1,5 +1,6 @@
 src = [
         'git-annotated-source.c',
+        'git-application.c',
         'git-commit.c',
         'git-commit-bag.c',
         'git-commit-dialog.c',

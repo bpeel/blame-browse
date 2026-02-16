@@ -58,7 +58,7 @@ static void git_main_window_on_revision (GtkEntry *entry,
 
 struct _GitMainWindow
 {
-  GtkWindow parent;
+  GtkApplicationWindow parent;
 };
 
 typedef struct
@@ -82,7 +82,7 @@ typedef struct
 
 G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitMainWindow,
                                   git_main_window,
-                                  GTK_TYPE_WINDOW);
+                                  GTK_TYPE_APPLICATION_WINDOW);
 
 struct _GitMainWindowHistoryItem
 {
@@ -282,10 +282,10 @@ git_main_window_finalize (GObject *object)
 }
 
 GtkWidget *
-git_main_window_new (void)
+git_main_window_new (GtkApplication *app)
 {
   GtkWidget *self = g_object_new (GIT_TYPE_MAIN_WINDOW,
-                                  "type", GTK_WINDOW_TOPLEVEL,
+                                  "application", app,
                                   NULL);
 
   return self;

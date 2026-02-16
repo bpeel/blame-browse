@@ -17,52 +17,16 @@
 
 #include "config.h"
 
-#include <gtk/gtk.h>
-#include <glib/gi18n.h>
-
-#include "git-main-window.h"
+#include "git-application.h"
 
 int
 main (int argc, char **argv)
 {
-  GtkWidget *main_win;
-  const gchar *filename = NULL, *revision = NULL;
+  GitApplication *app = git_application_new ();
 
-  g_set_application_name (_("Blame Browse"));
+  int ret = g_application_run (G_APPLICATION (app), argc, argv);
 
-  gtk_init (&argc, &argv);
+  g_object_unref (app);
 
-  if (argc > 1)
-    {
-      if (argc == 2)
-        filename = argv[1];
-      else if (argc == 3)
-        {
-          revision = argv[1];
-          filename = argv[2];
-        }
-      else
-        {
-          fprintf (stderr, "usage: %s [revision] [filename]\n",
-                   g_get_prgname ());
-          return 1;
-        }
-    }
-
-  main_win = git_main_window_new ();
-  gtk_window_set_default_size (GTK_WINDOW (main_win), 560, 460);
-  g_signal_connect (main_win, "destroy", G_CALLBACK (gtk_main_quit), NULL);
-
-  if (filename)
-    {
-      GFile *file = g_file_new_for_commandline_arg (filename);
-      git_main_window_set_file (GIT_MAIN_WINDOW (main_win), file, revision);
-      g_object_unref (file);
-    }
-
-  gtk_widget_show (main_win);
-
-  gtk_main ();
-
-  return 0;
+  return ret;
 }

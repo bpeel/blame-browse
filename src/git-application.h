@@ -1,5 +1,5 @@
 /* This file is part of blame-browse.
- * Copyright (C) 2008  Neil Roberts  <bpeeluk@yahoo.co.uk>
+ * Copyright (C) 2026  Neil Roberts  <bpeeluk@yahoo.co.uk>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,27 +15,23 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef __GIT_MAIN_WINDOW_H__
-#define __GIT_MAIN_WINDOW_H__
+#ifndef __GIT_APPLICATION_H__
+#define __GIT_APPLICATION_H__
 
 #include <gtk/gtk.h>
 
 G_BEGIN_DECLS
 
-#define GIT_TYPE_MAIN_WINDOW git_main_window_get_type ()
+#define GIT_TYPE_APPLICATION git_application_get_type ()
 
-G_DECLARE_FINAL_TYPE (GitMainWindow,
-                      git_main_window,
+G_DECLARE_FINAL_TYPE (GitApplication,
+                      git_application,
                       GIT,
-                      MAIN_WINDOW,
-                      GtkApplicationWindow);
+                      APPLICATION,
+                      GtkApplication);
 
-GtkWidget *git_main_window_new (GtkApplication *application);
-
-void git_main_window_set_file (GitMainWindow *main_window,
-                               GFile *file,
-                               const gchar *revision);
+GitApplication *git_application_new (void);
 
 G_END_DECLS
 
-#endif /* __GIT_MAIN_WINDOW_H__ */
+#endif /* __GIT_APPLICATION_H__ */
