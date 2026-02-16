@@ -247,9 +247,15 @@ git_commit_dialog_dispose (GObject *object)
 }
 
 GtkWidget *
-git_commit_dialog_new (void)
+git_commit_dialog_new (GtkWindow *parent)
 {
   GtkWidget *self = g_object_new (GIT_TYPE_COMMIT_DIALOG, NULL);
+
+  if (parent)
+    {
+      gtk_window_set_transient_for (GTK_WINDOW (self), parent);
+      gtk_window_set_destroy_with_parent (GTK_WINDOW (self), TRUE);
+    }
 
   return self;
 }

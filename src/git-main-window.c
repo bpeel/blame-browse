@@ -423,7 +423,8 @@ git_main_window_on_commit_selected (GitSourceView *sview,
 
   if (priv->commit_dialog == NULL)
     {
-      priv->commit_dialog = g_object_ref_sink (git_commit_dialog_new ());
+      priv->commit_dialog = git_commit_dialog_new (GTK_WINDOW (main_window));
+      g_object_ref_sink (priv->commit_dialog);
       gtk_window_set_default_size (GTK_WINDOW (priv->commit_dialog),
                                    -1, 400);
 

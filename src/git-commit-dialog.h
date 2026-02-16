@@ -35,7 +35,7 @@ enum {
   GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
 };
 
-GtkWidget *git_commit_dialog_new (void);
+GtkWidget *git_commit_dialog_new (GtkWindow *parent);
 
 void git_commit_dialog_set_commit (GitCommitDialog *cdiag,
                                    GitCommit *commit);
