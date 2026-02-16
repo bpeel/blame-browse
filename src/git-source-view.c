@@ -108,6 +108,10 @@ git_source_view_init (GitSourceView *sview)
 {
   GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
 
+  g_object_set (sview,
+                "spacing", 3,
+                "orientation", GTK_ORIENTATION_HORIZONTAL,
+                NULL);
   priv->state = GIT_SOURCE_VIEW_READY;
   priv->state_error = NULL;
 
@@ -241,8 +245,6 @@ GtkWidget *
 git_source_view_new (void)
 {
   GtkWidget *widget = g_object_new (GIT_TYPE_SOURCE_VIEW,
-                                    "spacing", 3,
-                                    "orientation", GTK_ORIENTATION_HORIZONTAL,
                                     NULL);
 
   return widget;

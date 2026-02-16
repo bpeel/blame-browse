@@ -81,16 +81,6 @@ git_application_local_command_line (GApplication *application,
     ->local_command_line(application, arguments, exit_status);
 }
 
-static GtkWidget *
-create_main_window (GApplication *app)
-{
-  GtkWidget *main_win = git_main_window_new (GTK_APPLICATION (app));
-
-  gtk_window_set_default_size (GTK_WINDOW (main_win), 560, 460);
-
-  return main_win;
-}
-
 static void
 git_application_open (GApplication *application,
                       GFile **files,
@@ -101,7 +91,7 @@ git_application_open (GApplication *application,
 
   for (int i = 0; i < n_files; i++)
     {
-      GtkWidget *main_win = create_main_window (application);
+      GtkWidget *main_win = git_main_window_new (GTK_APPLICATION (application));
 
       git_main_window_set_file (GIT_MAIN_WINDOW (main_win), files[i], revision);
 
@@ -112,7 +102,7 @@ git_application_open (GApplication *application,
 static void
 git_application_activate (GApplication *application)
 {
-  GtkWidget *main_win = create_main_window (application);
+  GtkWidget *main_win = git_main_window_new (GTK_APPLICATION (application));
 
   gtk_window_present (GTK_WINDOW (main_win));
 }

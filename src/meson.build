@@ -34,8 +34,11 @@ enums = gnome.mkenums('git-enum-types',
         c_template: 'git-enum-types.c.in',
         sources: enum_headers)
 
+resources = gnome.compile_resources('blamebrowse-resources',
+        'blamebrowse.gresource.xml')
+
 built_src = [
-        marshal[0], enums[0],
+        marshal[0], enums[0], resources[0],
 ]
 
 blame_browse = executable('blame-browse', src + built_src,

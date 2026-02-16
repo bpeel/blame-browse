@@ -38,20 +38,20 @@ static void git_main_window_on_commit_selected (GitSourceView *sview,
                                                 GitCommit *commit,
                                                 GitMainWindow *main_window);
 
-static GtkUIManager *git_main_window_create_ui_manager (void);
-
 static void git_main_window_free_history_item (GitMainWindowHistoryItem *item);
 
-static void git_main_window_on_open (GtkAction *action,
-                                     GitMainWindow *main_window);
-static void git_main_window_on_quit (GtkAction *action,
-                                     GitMainWindow *main_window);
-static void git_main_window_on_about (GtkAction *action,
-                                      GitMainWindow *main_window);
-static void git_main_window_on_back (GtkAction *action,
-                                     GitMainWindow *main_window);
-static void git_main_window_on_forward (GtkAction *action,
-                                        GitMainWindow *main_window);
+static void git_main_window_on_open (GSimpleAction *action,
+                                     GVariant *parameter,
+                                     gpointer user_data);
+static void git_main_window_on_about (GSimpleAction *action,
+                                      GVariant *parameter,
+                                      gpointer user_data);
+static void git_main_window_on_back (GSimpleAction *action,
+                                     GVariant *parameter,
+                                     gpointer user_data);
+static void git_main_window_on_forward (GSimpleAction *action,
+                                        GVariant *parameter,
+                                        gpointer user_data);
 
 static void git_main_window_on_revision (GtkEntry *entry,
                                          GitMainWindow *main_window);
@@ -63,7 +63,7 @@ struct _GitMainWindow
 
 typedef struct
 {
-  GtkWidget *revision_bar, *source_view, *statusbar;
+  GtkWidget *revision_bar, *source_view, *statusbar, *menu_button;
   GtkWidget *commit_dialog, *file_dialog;
 
   guint source_state_context;
@@ -77,7 +77,7 @@ typedef struct
   GList *history;
   GList *history_pos;
 
-  GtkAction *back_action, *forward_action;
+  GAction *back_action, *forward_action;
 } GitMainWindowPrivate;
 
 G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitMainWindow,
@@ -90,27 +90,13 @@ struct _GitMainWindowHistoryItem
   gchar *revision;
 };
 
-static GtkActionEntry
+static GActionEntry
 git_main_window_actions[] =
   {
-    { "File", NULL, N_("_File"), NULL,
-      NULL, NULL },
-    { "Go", NULL, N_("_Go"), NULL,
-      NULL, NULL },
-    { "Help", NULL, N_("_Help"), NULL,
-      NULL, NULL },
-    { "FileOpen", GTK_STOCK_OPEN, N_("_Open"), NULL,
-      NULL, G_CALLBACK (git_main_window_on_open) },
-    { "FileQuit", GTK_STOCK_QUIT, N_("_Quit"), NULL,
-      NULL, G_CALLBACK (git_main_window_on_quit) },
-    { "HelpAbout", GTK_STOCK_ABOUT, N_("_About"), NULL,
-      NULL, G_CALLBACK (git_main_window_on_about) },
-    { "GoBack", GTK_STOCK_GO_BACK, N_("_Back"), "<Alt>Left",
-      N_("Go back to previously visited commit"),
-      G_CALLBACK (git_main_window_on_back) },
-    { "GoForward", GTK_STOCK_GO_FORWARD, N_("_Forward"), "<Alt>Right",
-      N_("Go forward to a previously visited commit"),
-      G_CALLBACK (git_main_window_on_forward) },
+    { .name = "open", .activate = git_main_window_on_open },
+    { .name = "about", .activate = git_main_window_on_about },
+    { .name = "back", .activate = git_main_window_on_back },
+    { .name = "forward", .activate = git_main_window_on_forward },
   };
 
 static void
@@ -120,91 +106,68 @@ git_main_window_class_init (GitMainWindowClass *klass)
 
   gobject_class->dispose = git_main_window_dispose;
   gobject_class->finalize = git_main_window_finalize;
+
+  const char *resource_name = "/uk/co/busydoingnothing/blamebrowse/window.ui";
+
+  gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (klass),
+                                               resource_name);
+
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitMainWindow,
+                                                source_view);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitMainWindow,
+                                                revision_bar);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitMainWindow,
+                                                statusbar);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitMainWindow,
+                                                menu_button);
 }
 
 static void
 git_main_window_init (GitMainWindow *self)
 {
   GitMainWindowPrivate *priv = git_main_window_get_instance_private (self);
-  GtkWidget *layout;
-  GtkUIManager *ui_manager;
 
-  layout = gtk_box_new (GTK_ORIENTATION_VERTICAL, 0);
+  g_type_ensure (GIT_TYPE_SOURCE_VIEW);
 
-  if ((ui_manager = git_main_window_create_ui_manager ()))
-    {
-      GtkWidget *widget;
-      GtkActionGroup *action_group;
-      GtkAccelGroup *accel_group;
+  gtk_widget_init_template (GTK_WIDGET (self));
 
-      accel_group = gtk_accel_group_new ();
+  g_action_map_add_action_entries (G_ACTION_MAP (self),
+                                   git_main_window_actions,
+                                   G_N_ELEMENTS (git_main_window_actions),
+                                   self);
 
-      action_group = gtk_action_group_new ("GitActions");
-      gtk_action_group_add_actions (action_group, git_main_window_actions,
-                                    G_N_ELEMENTS (git_main_window_actions),
-                                    self);
+  priv->back_action =
+    g_object_ref (g_action_map_lookup_action (G_ACTION_MAP (self), "back"));
+  priv->forward_action =
+    g_object_ref (g_action_map_lookup_action (G_ACTION_MAP (self), "forward"));
 
-      if ((priv->back_action = gtk_action_group_get_action (action_group,
-                                                            "GoBack")))
-        g_object_ref (priv->back_action);
-      if ((priv->forward_action = gtk_action_group_get_action (action_group,
-                                                               "GoForward")))
-        g_object_ref (priv->forward_action);
+  priv->revision_activated_handler
+    = g_signal_connect (priv->revision_bar, "activate",
+                        G_CALLBACK (git_main_window_on_revision),
+                        self);
 
-      gtk_ui_manager_insert_action_group (ui_manager, action_group, 0);
-
-      if ((widget = gtk_ui_manager_get_widget (ui_manager, "/menubar")))
-        gtk_box_pack_start (GTK_BOX (layout), widget,
-                            FALSE, FALSE, 0);
-
-      if ((widget = gtk_ui_manager_get_widget (ui_manager, "/toolbar")))
-        {
-          GtkToolItem *tool_item = gtk_tool_item_new ();
-
-          gtk_box_pack_start (GTK_BOX (layout), widget,
-                              FALSE, FALSE, 0);
-
-          priv->revision_bar = g_object_ref_sink (gtk_entry_new ());
-          priv->revision_activated_handler
-            = g_signal_connect (priv->revision_bar, "activate",
-                                G_CALLBACK (git_main_window_on_revision),
-                                self);
-          gtk_widget_show (priv->revision_bar);
-          gtk_container_add (GTK_CONTAINER (tool_item), priv->revision_bar);
-          gtk_tool_item_set_expand (tool_item, TRUE);
-          gtk_tool_item_set_tooltip_text (tool_item,
-                                          _("Revision"));
-          gtk_widget_show (GTK_WIDGET (tool_item));
-          gtk_toolbar_insert (GTK_TOOLBAR (widget), tool_item, -1);
-        }
-
-      accel_group = gtk_ui_manager_get_accel_group (ui_manager);
-      gtk_window_add_accel_group (GTK_WINDOW (self), accel_group);
-
-      g_object_unref (action_group);
-
-      g_object_unref (ui_manager);
-    }
-
-  priv->source_view = g_object_ref_sink (git_source_view_new ());
   priv->source_state_handler = g_signal_connect_swapped
     (priv->source_view, "notify::state",
      G_CALLBACK (git_main_window_update_source_state), self);
   priv->commit_selected_handler = g_signal_connect
     (priv->source_view, "commit-selected",
      G_CALLBACK (git_main_window_on_commit_selected), self);
-  gtk_widget_show (priv->source_view);
-  gtk_box_pack_start (GTK_BOX (layout), priv->source_view, TRUE, TRUE, 0);
 
-  priv->statusbar = g_object_ref_sink (gtk_statusbar_new ());
   priv->source_state_context
     = gtk_statusbar_get_context_id (GTK_STATUSBAR (priv->statusbar),
                                     "source-state");
-  gtk_widget_show (priv->statusbar);
-  gtk_box_pack_start (GTK_BOX (layout), priv->statusbar, FALSE, FALSE, 0);
 
-  gtk_widget_show (layout);
-  gtk_container_add (GTK_CONTAINER (self), layout);
+  const char *menu_resource = "/uk/co/busydoingnothing/blamebrowse/menu.ui";
+  GtkBuilder *builder = gtk_builder_new_from_resource (menu_resource);
+  GMenuModel *menu_model
+    = G_MENU_MODEL (gtk_builder_get_object (builder, "menu"));
+  gtk_menu_button_set_menu_model (GTK_MENU_BUTTON (priv->menu_button),
+                                  menu_model);
+  g_object_unref (builder);
 
   git_main_window_update_source_state (self);
   git_main_window_update_history_actions (self);
@@ -222,22 +185,12 @@ git_main_window_dispose (GObject *object)
                                    priv->source_state_handler);
       g_signal_handler_disconnect (priv->source_view,
                                    priv->commit_selected_handler);
-      g_object_unref (priv->source_view);
-      priv->source_view = NULL;
     }
 
   if (priv->revision_bar)
     {
       g_signal_handler_disconnect (priv->revision_bar,
                                    priv->revision_activated_handler);
-      g_object_unref (priv->revision_bar);
-      priv->revision_bar = NULL;
-    }
-
-  if (priv->statusbar)
-    {
-      g_object_unref (priv->statusbar);
-      priv->statusbar = NULL;
     }
 
   if (priv->commit_dialog)
@@ -426,11 +379,11 @@ git_main_window_update_history_actions (GitMainWindow *main_window)
     git_main_window_get_instance_private (main_window);
 
   if (priv->back_action)
-    gtk_action_set_sensitive (priv->back_action,
-                              priv->history_pos && priv->history_pos->prev);
+    g_simple_action_set_enabled (G_SIMPLE_ACTION (priv->back_action),
+                                 priv->history_pos && priv->history_pos->prev);
   if (priv->forward_action)
-    gtk_action_set_sensitive (priv->forward_action,
-                              priv->history_pos && priv->history_pos->next);
+    g_simple_action_set_enabled (G_SIMPLE_ACTION (priv->forward_action),
+                                 priv->history_pos && priv->history_pos->next);
 
   if (priv->revision_bar)
     gtk_widget_set_sensitive (priv->revision_bar,
@@ -489,41 +442,6 @@ git_main_window_on_commit_selected (GitSourceView *sview,
   gtk_window_present (GTK_WINDOW (priv->commit_dialog));
 }
 
-static GtkUIManager *
-git_main_window_create_ui_manager (void)
-{
-  GtkUIManager *ui_manager;
-  GError *error = NULL;
-
-  ui_manager = gtk_ui_manager_new ();
-
-  /* Try the source dir first */
-  if (!gtk_ui_manager_add_ui_from_file (ui_manager,
-                                        BB_SRCDIR "/data/main-win-ui.xml",
-                                        &error))
-    {
-      /* If the file doesn't exist then try the package data folder */
-      if (error->domain == G_FILE_ERROR && error->code == G_FILE_ERROR_NOENT)
-        {
-          g_clear_error (&error);
-          gtk_ui_manager_add_ui_from_file (ui_manager,
-                                           BB_DATADIR
-                                           "/ui/main-win-ui.xml",
-                                           &error);
-        }
-    }
-
-  if (error)
-    {
-      g_warning ("Failed to load main-win-ui.xml: %s", error->message);
-      g_error_free (error);
-      g_object_unref (ui_manager);
-      ui_manager = NULL;
-    }
-
-  return ui_manager;
-}
-
 static void
 git_main_window_on_file_response (GtkDialog *dialog, gint response,
                                   GitMainWindow *main_window)
@@ -542,9 +460,11 @@ git_main_window_on_file_response (GtkDialog *dialog, gint response,
 }
 
 static void
-git_main_window_on_open (GtkAction *action,
-                         GitMainWindow *main_window)
+git_main_window_on_open (GSimpleAction *action,
+                         GVariant *parameter,
+                         gpointer user_data)
 {
+  GitMainWindow *main_window = user_data;
   GitMainWindowPrivate *priv =
     git_main_window_get_instance_private (main_window);
 
@@ -572,16 +492,12 @@ git_main_window_on_open (GtkAction *action,
 }
 
 static void
-git_main_window_on_quit (GtkAction *action,
-                         GitMainWindow *main_window)
+git_main_window_on_about (GSimpleAction *action,
+                          GVariant *parameter,
+                          gpointer user_data)
 {
-  gtk_widget_destroy (GTK_WIDGET (main_window));
-}
+  GitMainWindow *main_window = user_data;
 
-static void
-git_main_window_on_about (GtkAction *action,
-                          GitMainWindow *main_window)
-{
   const gchar *license_text =
     _("This program is free software: you can redistribute it and/or "
       "modify it under the terms of the GNU General Public License as "
@@ -607,9 +523,11 @@ git_main_window_on_about (GtkAction *action,
 }
 
 static void
-git_main_window_on_back (GtkAction *action,
-                         GitMainWindow *main_window)
+git_main_window_on_back (GSimpleAction *action,
+                         GVariant *parameter,
+                         gpointer user_data)
 {
+  GitMainWindow *main_window = user_data;
   GitMainWindowPrivate *priv =
     git_main_window_get_instance_private (main_window);
 
@@ -625,9 +543,11 @@ git_main_window_on_back (GtkAction *action,
 }
 
 static void
-git_main_window_on_forward (GtkAction *action,
-                            GitMainWindow *main_window)
+git_main_window_on_forward (GSimpleAction *action,
+                            GVariant *parameter,
+                            gpointer user_data)
 {
+  GitMainWindow *main_window = user_data;
   GitMainWindowPrivate *priv =
     git_main_window_get_instance_private (main_window);
 
