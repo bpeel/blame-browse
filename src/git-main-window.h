@@ -33,7 +33,7 @@ G_DECLARE_FINAL_TYPE (GitMainWindow,
 GtkWidget *git_main_window_new (void);
 
 void git_main_window_set_file (GitMainWindow *main_window,
-                               const gchar *filename,
+                               GFile *file,
                                const gchar *revision);
 
 G_END_DECLS

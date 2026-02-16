@@ -54,7 +54,11 @@ main (int argc, char **argv)
   g_signal_connect (main_win, "destroy", G_CALLBACK (gtk_main_quit), NULL);
 
   if (filename)
-    git_main_window_set_file (GIT_MAIN_WINDOW (main_win), filename, revision);
+    {
+      GFile *file = g_file_new_for_commandline_arg (filename);
+      git_main_window_set_file (GIT_MAIN_WINDOW (main_win), file, revision);
+      g_object_unref (file);
+    }
 
   gtk_widget_show (main_win);
 

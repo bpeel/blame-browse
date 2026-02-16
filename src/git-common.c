@@ -46,75 +46,31 @@ _git_boolean_continue_accumulator (GSignalInvocationHint *ihint,
   return continue_emission;
 }
 
-gboolean
-git_find_repo (const gchar *filename, gchar **repo,
-               gchar **relative_filename)
+GFile *
+git_find_repo (GFile *filename)
 {
-  int len;
-  gchar *full_filename, *full_filename_copy;
-  gboolean ret = FALSE;
+  GFile *repo = g_object_ref (filename);
 
-  if (*filename == 0)
-    return FALSE;
-
-  /* Convert the path to an absolute path */
-  if (g_path_is_absolute (filename))
-    full_filename = g_strdup (filename);
-  else
+  while (true)
     {
-      gchar *current_dir = g_get_current_dir ();
-      full_filename = g_build_filename (current_dir, filename, NULL);
-      g_free (current_dir);
+      GFile *parent = g_file_get_parent (repo);
+
+      g_object_unref (repo);
+
+      if (parent == NULL)
+        return NULL;
+
+      repo = parent;
+
+      GFile *dot_git = g_file_get_child (repo, ".git");
+
+      gboolean found = g_file_query_exists (dot_git, NULL);
+
+      g_object_unref (dot_git);
+
+      if (found)
+        return repo;
     }
-
-  len = strlen (full_filename);
-  full_filename_copy = g_malloc (len + strlen (G_DIR_SEPARATOR_S)
-                                 + strlen (".git") + 1);
-
-  memcpy (full_filename_copy, full_filename, len);
-
-  while (TRUE)
-    {
-      while (len > 0 && G_IS_DIR_SEPARATOR (full_filename[len - 1]))
-        len--;
-      while (len > 0 && !G_IS_DIR_SEPARATOR (full_filename[len - 1]))
-        len--;
-      while (len > 0 && G_IS_DIR_SEPARATOR (full_filename[len - 1]))
-        len--;
-
-      if (len == 0)
-        break;
-
-      strcpy (full_filename_copy + len, G_DIR_SEPARATOR_S ".git");
-
-      if (g_file_test (full_filename_copy, G_FILE_TEST_EXISTS))
-        {
-          if (repo)
-            {
-              *repo = g_malloc (len + 1);
-              memcpy (*repo, full_filename, len);
-              (*repo)[len] = '\0';
-            }
-          if (relative_filename)
-            {
-              const gchar *p = full_filename + len;
-
-              while (G_IS_DIR_SEPARATOR (*p))
-                p++;
-
-              *relative_filename = g_strdup (p);
-            }
-
-          ret = TRUE;
-
-          break;
-        }
-    }
-
-  g_free (full_filename_copy);
-  g_free (full_filename);
-
-  return ret;
 }
 
 /* This function is stolen from Tweet and then later adapted to use

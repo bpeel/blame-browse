@@ -48,7 +48,7 @@ typedef struct
   GArray *lines;
   GitAnnotatedSourceLine current_line;
 
-  gchar *repo;
+  GFile *repo;
 } GitAnnotatedSourcePrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GitAnnotatedSource,
@@ -165,7 +165,7 @@ git_annotated_source_finalize (GObject *object)
   g_array_free (priv->lines, TRUE);
 
   if (priv->repo)
-    g_free (priv->repo);
+    g_object_unref (priv->repo);
 
   G_OBJECT_CLASS (git_annotated_source_parent_class)->finalize (object);
 }
@@ -205,11 +205,10 @@ git_annotated_source_get_n_lines (GitAnnotatedSource *source)
 
 gboolean
 git_annotated_source_fetch (GitAnnotatedSource *source,
-                            const gchar *filename,
+                            GFile *file,
                             const gchar *revision,
                             GError **error)
 {
-  gchar *repo, *base_part;
   gboolean ret;
 
   g_return_val_if_fail (GIT_IS_ANNOTATED_SOURCE (source), FALSE);
@@ -219,29 +218,51 @@ git_annotated_source_fetch (GitAnnotatedSource *source,
     git_annotated_source_get_instance_private (source);
 
   g_return_val_if_fail (priv->reader != NULL, FALSE);
-  g_return_val_if_fail (filename != NULL, FALSE);
+  g_return_val_if_fail (file != NULL, FALSE);
 
   git_annotated_source_clear_lines (source);
 
-  if (!git_find_repo (filename, &repo, &base_part))
+  GFile *repo = git_find_repo (file);
+
+  if (repo == NULL)
     {
+      char *parse_name = g_file_get_parse_name (file);
+
       g_set_error (error, GIT_ERROR, GIT_ERROR_NO_REPO,
-                   "No repo found for %s", filename);
+                   "No repo found for %s", parse_name);
+
+      g_free (parse_name);
 
       return FALSE;
     }
 
   if (priv->repo)
-    g_free (priv->repo);
-  priv->repo = g_strdup (repo);
+    g_object_unref (priv->repo);
+  priv->repo = repo;
+
+  char *relative_file = g_file_get_relative_path (repo, file);
+
+  if (relative_file == NULL)
+    {
+      char *parse_name = g_file_get_parse_name (file);
+
+      g_set_error (error,
+                   G_FILE_ERROR,
+                   G_FILE_ERROR_NOENT,
+                   "Couldn’t convert %s to relative path",
+                   parse_name);
+
+      g_free (parse_name);
+
+      return FALSE;
+    }
 
   /* Revision can be NULL in which case it will terminate the argument
      list early and git will include uncommitted changes */
   ret = git_reader_start (priv->reader, repo, error, "blame", "-p",
-                          base_part, revision, NULL);
+                          relative_file, revision, NULL);
 
-  g_free (repo);
-  g_free (base_part);
+  g_free (relative_file);
 
   return ret;
 }

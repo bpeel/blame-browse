@@ -86,7 +86,7 @@ G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitMainWindow,
 
 struct _GitMainWindowHistoryItem
 {
-  gchar *filename;
+  GFile *file;
   gchar *revision;
 };
 
@@ -293,7 +293,7 @@ git_main_window_new (void)
 
 static void
 git_main_window_do_set_file (GitMainWindow *main_window,
-                             const gchar *filename,
+                             GFile *file,
                              const gchar *revision)
 {
   GitMainWindowPrivate *priv =
@@ -301,7 +301,7 @@ git_main_window_do_set_file (GitMainWindow *main_window,
 
   if (priv->source_view)
     git_source_view_set_file (GIT_SOURCE_VIEW (priv->source_view),
-                              filename, revision);
+                              file, revision);
 
   if (priv->revision_bar)
     gtk_entry_set_text (GTK_ENTRY (priv->revision_bar),
@@ -311,8 +311,8 @@ git_main_window_do_set_file (GitMainWindow *main_window,
 static void
 git_main_window_free_history_item (GitMainWindowHistoryItem *item)
 {
-  if (item->filename)
-    g_free (item->filename);
+  if (item->file)
+    g_object_unref (item->file);
   if (item->revision)
     g_free (item->revision);
   g_slice_free (GitMainWindowHistoryItem, item);
@@ -320,7 +320,7 @@ git_main_window_free_history_item (GitMainWindowHistoryItem *item)
 
 static void
 git_main_window_add_history (GitMainWindow *main_window,
-                             const gchar *filename,
+                             GFile *file,
                              const gchar *revision)
 {
   GitMainWindowPrivate *priv =
@@ -328,7 +328,7 @@ git_main_window_add_history (GitMainWindow *main_window,
   GitMainWindowHistoryItem *item;
 
   item = g_slice_new (GitMainWindowHistoryItem);
-  item->filename = g_strdup (filename);
+  item->file = g_object_ref (file);
   item->revision = revision ? g_strdup (revision) : NULL;
 
   if (priv->history_pos == NULL)
@@ -352,18 +352,18 @@ git_main_window_add_history (GitMainWindow *main_window,
 
 void
 git_main_window_set_file (GitMainWindow *main_window,
-                          const gchar *filename,
+                          GFile *file,
                           const gchar *revision)
 {
   g_return_if_fail (GIT_IS_MAIN_WINDOW (main_window));
-  g_return_if_fail (filename != NULL);
+  g_return_if_fail (file != NULL);
 
   GitMainWindowPrivate *priv =
     git_main_window_get_instance_private (main_window);
 
-  git_main_window_do_set_file (main_window, filename, revision);
+  git_main_window_do_set_file (main_window, file, revision);
 
-  git_main_window_add_history (main_window, filename, revision);
+  git_main_window_add_history (main_window, file, revision);
 
   if (priv->source_view)
     gtk_widget_grab_focus (priv->source_view);
@@ -453,7 +453,7 @@ git_main_window_on_commit_response (GtkDialog *dialog, gint response,
         = (GitMainWindowHistoryItem *) priv->history_pos->data;
 
       if (commit)
-        git_main_window_set_file (main_window, item->filename,
+        git_main_window_set_file (main_window, item->file,
                                   git_commit_get_hash (commit));
     }
 
@@ -530,13 +530,12 @@ git_main_window_on_file_response (GtkDialog *dialog, gint response,
 {
   if (response == GTK_RESPONSE_OK)
     {
-      gchar *filename
-        = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dialog));
+      GFile *file = gtk_file_chooser_get_file (GTK_FILE_CHOOSER (dialog));
 
-      if (filename)
-        git_main_window_set_file (main_window, filename, NULL);
+      if (file)
+        git_main_window_set_file (main_window, file, NULL);
 
-      g_free (filename);
+      g_object_unref (file);
     }
 
   gtk_widget_hide (GTK_WIDGET (dialog));
@@ -619,7 +618,7 @@ git_main_window_on_back (GtkAction *action,
       GitMainWindowHistoryItem *item;
       priv->history_pos = priv->history_pos->prev;
       item = (GitMainWindowHistoryItem *) priv->history_pos->data;
-      git_main_window_do_set_file (main_window, item->filename, item->revision);
+      git_main_window_do_set_file (main_window, item->file, item->revision);
 
       git_main_window_update_history_actions (main_window);
     }
@@ -637,7 +636,7 @@ git_main_window_on_forward (GtkAction *action,
       GitMainWindowHistoryItem *item;
       priv->history_pos = priv->history_pos->next;
       item = (GitMainWindowHistoryItem *) priv->history_pos->data;
-      git_main_window_do_set_file (main_window, item->filename, item->revision);
+      git_main_window_do_set_file (main_window, item->file, item->revision);
 
       git_main_window_update_history_actions (main_window);
     }
@@ -656,7 +655,7 @@ git_main_window_on_revision (GtkEntry *entry,
         = (GitMainWindowHistoryItem *) priv->history_pos->data;
       const gchar *revision = gtk_entry_get_text (entry);
 
-      git_main_window_set_file (main_window, item->filename,
+      git_main_window_set_file (main_window, item->file,
                                 strlen (revision) ? revision : NULL);
     }
 }

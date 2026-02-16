@@ -43,7 +43,8 @@ struct _GitCommit
 
 typedef struct
 {
-  gchar *hash, *repo;
+  gchar *hash;
+  GFile *repo;
   GHashTable *props;
 
   gboolean has_log_data;
@@ -88,11 +89,11 @@ git_commit_class_init (GitCommitClass *klass)
                                | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_HASH, pspec);
 
-  pspec = g_param_spec_string ("repo",
+  pspec = g_param_spec_object ("repo",
                                "repository",
                                "Location of the repository where this commit "
                                "originated",
-                               ".",
+                               G_TYPE_FILE,
                                G_PARAM_CONSTRUCT_ONLY | G_PARAM_READABLE
                                | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_REPO, pspec);
@@ -124,7 +125,7 @@ git_commit_finalize (GObject *object)
   if (priv->hash)
     g_free (priv->hash);
   if (priv->repo)
-    g_free (priv->repo);
+    g_object_unref (priv->repo);
   if (priv->log_buf)
     g_string_free (priv->log_buf, TRUE);
   g_hash_table_destroy (priv->props);
@@ -160,8 +161,8 @@ git_commit_set_property (GObject *object, guint property_id,
 
     case PROP_REPO:
       if (priv->repo)
-        g_free (priv->repo);
-      priv->repo = g_strdup (g_value_get_string (value));
+        g_object_unref (priv->repo);
+      priv->repo = g_object_ref (g_value_get_object (value));
       break;
 
     default:
@@ -184,7 +185,7 @@ git_commit_get_property (GObject *object, guint property_id,
       break;
 
     case PROP_REPO:
-      g_value_set_string (value, priv->repo);
+      g_value_set_object (value, priv->repo);
 
     case PROP_HAS_LOG_DATA:
       g_value_set_boolean (value, priv->has_log_data);
@@ -196,7 +197,7 @@ git_commit_get_property (GObject *object, guint property_id,
 }
 
 GitCommit *
-git_commit_new (const gchar *hash, const gchar *repo)
+git_commit_new (const gchar *hash, GFile *repo)
 {
   GitCommit *self = g_object_new (GIT_TYPE_COMMIT,
                                   "hash", hash,
@@ -216,7 +217,7 @@ git_commit_get_hash (GitCommit *commit)
   return priv->hash;
 }
 
-const gchar *
+GFile *
 git_commit_get_repo (GitCommit *commit)
 {
   g_return_val_if_fail (GIT_IS_COMMIT (commit), NULL);

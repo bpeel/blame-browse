@@ -19,6 +19,7 @@
 #define __GIT_READER_H__
 
 #include <glib-object.h>
+#include <gio/gio.h>
 
 G_BEGIN_DECLS
 
@@ -41,7 +42,7 @@ struct _GitReaderClass
 GitReader *git_reader_new (void);
 
 gboolean git_reader_start (GitReader *reader,
-                           const gchar *working_directory,
+                           GFile *working_directory,
                            GError **error,
                            ...) G_GNUC_NULL_TERMINATED;
 

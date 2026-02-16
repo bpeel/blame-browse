@@ -34,7 +34,7 @@ G_DECLARE_FINAL_TYPE (GitCommitBag,
 GitCommitBag *git_commit_bag_get_default (void);
 
 GitCommit *git_commit_bag_get (GitCommitBag *commit_bag,
-                               const gchar *hash, const gchar *repo);
+                               const gchar *hash, GFile *repo);
 
 G_END_DECLS
 

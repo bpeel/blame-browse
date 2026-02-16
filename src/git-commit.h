@@ -33,10 +33,10 @@ G_DECLARE_FINAL_TYPE (GitCommit,
 
 #define GIT_COMMIT_HASH_LENGTH 40
 
-GitCommit *git_commit_new (const gchar *hash, const gchar *repo);
+GitCommit *git_commit_new (const gchar *hash, GFile *repo);
 
 const gchar *git_commit_get_hash (GitCommit *commit);
-const gchar *git_commit_get_repo (GitCommit *commit);
+GFile *git_commit_get_repo (GitCommit *commit);
 
 gboolean git_commit_get_has_log_data (GitCommit *commit);
 const gchar *git_commit_get_log_data (GitCommit *commit);

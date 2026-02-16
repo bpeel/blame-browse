@@ -385,7 +385,7 @@ git_reader_on_child_stderr (GIOChannel *io_source,
 
 gboolean
 git_reader_start (GitReader *reader,
-                  const gchar *working_directory,
+                  GFile *working_directory,
                   GError **error,
                   ...)
 {
@@ -403,6 +403,23 @@ git_reader_start (GitReader *reader,
 
   git_reader_close_process (reader, TRUE);
 
+  char *working_directory_str = g_file_get_path (working_directory);
+
+  if (working_directory_str == NULL)
+    {
+      char *parse_name = g_file_get_parse_name (working_directory);
+
+      g_set_error (error,
+                   G_FILE_ERROR,
+                   G_FILE_ERROR_NOENT,
+                   "%s does not exist",
+                   parse_name);
+
+      g_free (parse_name);
+
+      return FALSE;
+    }
+
   /* Count the number of arguments */
   va_start (ap, error);
   G_VA_COPY (ap_copy, ap);
@@ -419,13 +436,14 @@ git_reader_start (GitReader *reader,
 
   va_end (ap);
 
-  spawn_ret = g_spawn_async_with_pipes (working_directory, args, NULL,
+  spawn_ret = g_spawn_async_with_pipes (working_directory_str, args, NULL,
                                         G_SPAWN_SEARCH_PATH
                                         | G_SPAWN_DO_NOT_REAP_CHILD,
                                         NULL, NULL, &priv->child_pid,
                                         NULL, &stdout_fd, &stderr_fd,
                                         error);
 
+  g_free (working_directory_str);
   g_strfreev (args);
 
   if (!spawn_ret)

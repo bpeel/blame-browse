@@ -353,13 +353,13 @@ git_source_view_on_completed (GitAnnotatedSource *source,
 
 void
 git_source_view_set_file (GitSourceView *sview,
-                          const gchar *filename,
+                          GFile *file,
                           const gchar *revision)
 {
   GError *error = NULL;
 
   g_return_if_fail (GIT_IS_SOURCE_VIEW (sview));
-  g_return_if_fail (filename != NULL);
+  g_return_if_fail (file != NULL);
 
   GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
 
@@ -372,7 +372,7 @@ git_source_view_set_file (GitSourceView *sview,
                         G_CALLBACK (git_source_view_on_completed), sview);
 
   if (!git_annotated_source_fetch (priv->load_source,
-                                   filename, revision,
+                                   file, revision,
                                    &error))
     {
       git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);

@@ -47,7 +47,7 @@ typedef struct _GitAnnotatedSourceLine
 
 GitAnnotatedSource *git_annotated_source_new (void);
 gboolean git_annotated_source_fetch (GitAnnotatedSource *source,
-                                     const gchar *filename,
+                                     GFile *file,
                                      const gchar *revision,
                                      GError **error);
 

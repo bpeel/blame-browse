@@ -48,7 +48,7 @@ typedef enum {
 GtkWidget *git_source_view_new (void);
 
 void git_source_view_set_file (GitSourceView *sview,
-                               const gchar *filename,
+                               GFile *file,
                                const gchar *revision);
 
 GitSourceViewState git_source_view_get_state (GitSourceView *sview);

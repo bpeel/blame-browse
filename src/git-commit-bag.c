@@ -92,7 +92,7 @@ git_commit_bag_get_default (void)
 
 GitCommit *
 git_commit_bag_get (GitCommitBag *commit_bag, const gchar *hash,
-                    const gchar *repo)
+                    GFile *repo)
 {
   g_return_val_if_fail (GIT_IS_COMMIT_BAG (commit_bag), NULL);
 
