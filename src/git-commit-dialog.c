@@ -112,11 +112,9 @@ git_commit_dialog_init (GitCommitDialog *self)
                 "label", _("<b>Commit</b>"),
                 "xalign", 0.0f,
                 NULL);
-  gtk_widget_show (label);
   gtk_grid_attach (GTK_GRID (priv->grid), label, 0, 0, 1, 1);
 
   priv->commit_label = g_object_ref_sink (gtk_label_new (NULL));
-  gtk_widget_show (priv->commit_label);
   gtk_grid_attach (GTK_GRID (priv->grid),
                    priv->commit_label,
                    1, 0, 1, 1);
@@ -128,12 +126,9 @@ git_commit_dialog_init (GitCommitDialog *self)
                               "clicked",
                               G_CALLBACK (git_commit_dialog_copy_hash),
                               self);
-  gtk_widget_show (priv->copy_button);
   gtk_grid_attach (GTK_GRID (priv->grid),
                    priv->copy_button,
                    2, 0, 1, 1);
-
-  gtk_widget_show (priv->grid);
 
   content = gtk_box_new (GTK_ORIENTATION_VERTICAL, 11);
 
@@ -151,15 +146,11 @@ git_commit_dialog_init (GitCommitDialog *self)
                 "left-margin", 8,
                 "right-margin", 8,
                 NULL);
-  gtk_widget_show (priv->log_view);
   gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scrolled_window),
                                  priv->log_view);
 
-  gtk_widget_show (scrolled_window);
   gtk_widget_set_vexpand (scrolled_window, TRUE);
   gtk_box_append (GTK_BOX (content), scrolled_window);
-
-  gtk_widget_show (content);
 
   GtkWidget *content_area = gtk_dialog_get_content_area (GTK_DIALOG (self));
 

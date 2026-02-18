@@ -7,11 +7,9 @@
     <property name="default-height">460</property>
     <child type="titlebar">
       <object class="GtkHeaderBar">
-        <property name="visible">True</property>
         <property name="show-title-buttons">True</property>
         <child type="title">
           <object class="GtkLabel" id="tabs">
-            <property name="visible">True</property>
             <property name="label" translatable="yes">Blame Browse</property>
             <style>
               <class name="title"/>
@@ -20,7 +18,6 @@
         </child>
         <child type="end">
           <object class="GtkMenuButton" id="menu_button">
-            <property name="visible">True</property>
             <property name="direction">none</property>
             <style>
               <class name="image-button"/>
@@ -29,13 +26,11 @@
         </child>
         <child>
           <object class="GtkButton">
-            <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="receives-default">True</property>
             <property name="action-name">win.back</property>
             <child>
               <object class="GtkImage">
-                <property name="visible">True</property>
                 <property name="icon-name">go-previous</property>
               </object>
             </child>
@@ -43,13 +38,11 @@
         </child>
         <child>
           <object class="GtkButton">
-            <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="receives-default">True</property>
             <property name="action-name">win.forward</property>
             <child>
               <object class="GtkImage">
-                <property name="visible">True</property>
                 <property name="icon-name">go-next</property>
               </object>
             </child>
@@ -57,13 +50,11 @@
         </child>
         <child>
           <object class="GtkButton">
-            <property name="visible">True</property>
             <property name="can-focus">True</property>
             <property name="receives-default">True</property>
             <property name="action-name">win.open</property>
             <child>
               <object class="GtkImage">
-                <property name="visible">True</property>
                 <property name="icon-name">document-open</property>
               </object>
             </child>
@@ -71,7 +62,6 @@
         </child>
         <child>
           <object class="GtkEntry" id="revision_bar">
-            <property name="visible">True</property>
             <property name="can-focus">True</property>
           </object>
         </child>
@@ -79,19 +69,16 @@
     </child>
     <child>
       <object class="GtkBox">
-        <property name="visible">True</property>
         <property name="orientation">vertical</property>
         <child>
           <object class="GitSourceView" id="source_view">
             <property name="can-focus">True</property>
-            <property name="visible">True</property>
             <property name="vexpand">True</property>
           </object>
         </child>
         <child>
           <object class="GtkStatusbar" id="statusbar">
             <property name="can-focus">False</property>
-            <property name="visible">True</property>
             <property name="vexpand">False</property>
           </object>
         </child>
