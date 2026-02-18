@@ -29,7 +29,7 @@ G_DECLARE_FINAL_TYPE (GitCommitLinkButton,
                       git_commit_link_button,
                       GIT,
                       COMMIT_LINK_BUTTON,
-                      GtkLinkButton);
+                      GtkButton);
 
 GtkWidget *git_commit_link_button_new (GitCommit *commit);
 

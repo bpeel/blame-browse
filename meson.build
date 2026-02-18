@@ -21,7 +21,7 @@ cdata = configuration_data()
 
 cdata.set_quoted('PACKAGE_VERSION', meson.project_version())
 
-gtk_dep = dependency('gtk+-3.0')
+gtk_dep = dependency('gtk4')
 
 subdir('src')
 

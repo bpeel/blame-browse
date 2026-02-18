@@ -32,7 +32,6 @@
 #include "git-enum-types.h"
 
 static void git_source_view_dispose (GObject *object);
-static void git_source_view_destroy (GtkWidget *widget);
 static void git_source_view_get_property (GObject *object, guint property_id,
                                           GValue *value, GParamSpec *pspec);
 
@@ -49,7 +48,7 @@ typedef struct
   GitSourceViewState state;
   GError *state_error;
 
-  GtkWidget *text_view, *hash_view;
+  GtkWidget *scrolled_win, *text_view, *hash_view;
 } GitSourceViewPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GitSourceView,
@@ -76,13 +75,10 @@ static void
 git_source_view_class_init (GitSourceViewClass *klass)
 {
   GObjectClass *gobject_class = (GObjectClass *) klass;
-  GtkWidgetClass *widget_class = (GtkWidgetClass *) klass;
   GParamSpec *pspec;
 
   gobject_class->get_property = git_source_view_get_property;
   gobject_class->dispose = git_source_view_dispose;
-
-  widget_class->destroy = git_source_view_destroy;
 
   pspec = g_param_spec_enum ("state",
                              "State",
@@ -102,6 +98,9 @@ git_source_view_class_init (GitSourceViewClass *klass)
                     _git_marshal_VOID__OBJECT,
                     G_TYPE_NONE, 1,
                     GIT_TYPE_COMMIT);
+
+  gtk_widget_class_set_layout_manager_type ((GtkWidgetClass *) (klass),
+                                            GTK_TYPE_BOX_LAYOUT);
 }
 
 static void
@@ -117,41 +116,33 @@ git_source_view_init (GitSourceView *sview)
   priv->state_error = NULL;
 
   priv->text_view = gtk_text_view_new ();
-  g_object_ref_sink (priv->text_view);
 
   priv->hash_view = git_hash_view_new (GTK_TEXT_VIEW (priv->text_view));
-  g_object_ref_sink (priv->hash_view);
+  gtk_widget_set_hexpand (priv->hash_view, FALSE);
+  gtk_widget_set_parent (priv->hash_view, GTK_WIDGET (sview));
 
   priv->commit_selected_handler
     = g_signal_connect (priv->hash_view, "commit-selected",
                         G_CALLBACK (git_source_view_on_commit_selected), sview);
 
-  gtk_widget_show (priv->hash_view);
-  gtk_box_pack_start (GTK_BOX (sview),
-                      priv->hash_view,
-                      FALSE, /* expand */
-                      TRUE, /* fill */
-                      0 /* padding */);
 
   gtk_text_view_set_monospace (GTK_TEXT_VIEW (priv->text_view), TRUE);
   gtk_text_view_set_editable (GTK_TEXT_VIEW (priv->text_view), FALSE);
 
-  gtk_widget_show (priv->text_view);
-
-  GtkWidget *scrolled_win = gtk_scrolled_window_new (NULL, NULL);
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_win),
+  priv->scrolled_win = gtk_scrolled_window_new ();
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->scrolled_win),
                                   GTK_POLICY_AUTOMATIC,
                                   GTK_POLICY_AUTOMATIC);
 
-  gtk_container_add (GTK_CONTAINER (scrolled_win), priv->text_view);
+  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (priv->scrolled_win),
+                                 priv->text_view);
+  gtk_widget_set_hexpand (priv->scrolled_win, TRUE);
 
-  gtk_widget_show (scrolled_win);
+  gtk_widget_set_parent (priv->scrolled_win, GTK_WIDGET (sview));
 
-  gtk_box_pack_start (GTK_BOX (sview),
-                      scrolled_win,
-                      TRUE, /* expand */
-                      TRUE, /* fill */
-                      0 /* padding */);
+  GtkLayoutManager *layout = gtk_widget_get_layout_manager (GTK_WIDGET (sview));
+  gtk_orientable_set_orientation (GTK_ORIENTABLE (layout),
+                                  GTK_ORIENTATION_HORIZONTAL);
 }
 
 static void
@@ -165,26 +156,6 @@ git_source_view_unref_loading_source (GitSourceView *sview)
                                    priv->loading_completed_handler);
       g_object_unref (priv->load_source);
       priv->load_source = NULL;
-    }
-}
-
-static void
-git_source_view_unref_children (GitSourceView *sview)
-{
-  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
-
-  if (priv->text_view)
-    {
-      g_object_unref (priv->text_view);
-      priv->text_view = NULL;
-    }
-
-  if (priv->hash_view)
-    {
-      g_signal_handler_disconnect (priv->hash_view,
-                                   priv->commit_selected_handler);
-      g_object_unref (priv->hash_view);
-      priv->hash_view = NULL;
     }
 }
 
@@ -208,19 +179,10 @@ git_source_view_dispose (GObject *object)
       priv->state_error = NULL;
     }
 
-  git_source_view_unref_children (sview);
+  g_clear_pointer (&priv->scrolled_win, gtk_widget_unparent);
+  g_clear_pointer (&priv->hash_view, gtk_widget_unparent);
 
   G_OBJECT_CLASS (git_source_view_parent_class)->dispose (object);
-}
-
-static void
-git_source_view_destroy (GtkWidget *widget)
-{
-  GitSourceView *sview = (GitSourceView *) widget;
-
-  git_source_view_unref_children (sview);
-
-  GTK_WIDGET_CLASS (git_source_view_parent_class)->destroy (widget);
 }
 
 static void

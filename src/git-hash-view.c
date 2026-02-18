@@ -31,20 +31,26 @@
 #include "git-enum-types.h"
 
 static void git_hash_view_dispose (GObject *object);
-static void git_hash_view_destroy (GtkWidget *widget);
-static void git_hash_view_realize (GtkWidget *widget);
-static gboolean git_hash_view_draw (GtkWidget *widget, cairo_t *cr);
-static gboolean git_hash_view_motion_notify_event (GtkWidget *widget,
-                                                   GdkEventMotion *event);
-static gboolean git_hash_view_button_release_event (GtkWidget *widget,
-                                                    GdkEventButton *event);
+static void git_hash_view_snapshot (GtkWidget *widget,
+                                    GtkSnapshot *snapshot);
+static void
+git_hash_view_motion_cb (GtkEventControllerMotion *controller,
+                         double x,
+                         double y,
+                         GitHashView *hview);
+static void git_hash_view_click_released_cb (GtkGestureClick *self,
+                                             gint n_press,
+                                             gdouble x,
+                                             gdouble y,
+                                             gpointer user_data);
 static GtkSizeRequestMode git_hash_view_get_request_mode (GtkWidget *widget);
-static void git_hash_view_get_preferred_width (GtkWidget *widget,
-                                               gint *minimum_width,
-                                               gint *natural_width);
-static void git_hash_view_get_preferred_height (GtkWidget *widget,
-                                               gint *minimum_height,
-                                               gint *natural_height);
+static void git_hash_view_measure (GtkWidget *widget,
+                                   GtkOrientation orientation,
+                                   int for_size,
+                                   int* minimum,
+                                   int* natural,
+                                   int* minimum_baseline,
+                                   int* natural_baseline);
 static void git_hash_view_get_property (GObject *object, guint property_id,
                                         GValue *value, GParamSpec *pspec);
 static void git_hash_view_set_property (GObject *object, guint property_id,
@@ -104,15 +110,10 @@ git_hash_view_class_init (GitHashViewClass *klass)
   gobject_class->get_property = git_hash_view_get_property;
   gobject_class->set_property = git_hash_view_set_property;
 
-  widget_class->destroy = git_hash_view_destroy;
-  widget_class->realize = git_hash_view_realize;
-  widget_class->draw = git_hash_view_draw;
+  widget_class->snapshot = git_hash_view_snapshot;
   widget_class->query_tooltip = git_hash_view_query_tooltip;
-  widget_class->motion_notify_event = git_hash_view_motion_notify_event;
-  widget_class->button_release_event = git_hash_view_button_release_event;
   widget_class->get_request_mode = git_hash_view_get_request_mode;
-  widget_class->get_preferred_width = git_hash_view_get_preferred_width;
-  widget_class->get_preferred_height = git_hash_view_get_preferred_height;
+  widget_class->measure = git_hash_view_measure;
 
   pspec = g_param_spec_object ("text-view",
                                "Text view",
@@ -147,10 +148,26 @@ git_hash_view_init (GitHashView *hview)
 {
   g_object_set (hview, "has-tooltip", TRUE, NULL);
 
-  GtkStyleContext *style_context =
-    gtk_widget_get_style_context (GTK_WIDGET (hview));
-  gtk_style_context_add_class (style_context, GTK_STYLE_CLASS_VIEW);
-  gtk_style_context_add_class (style_context, GTK_STYLE_CLASS_MONOSPACE);
+  gtk_widget_add_css_class (GTK_WIDGET (hview), "view");
+  gtk_widget_add_css_class (GTK_WIDGET (hview), "monospace");
+
+  GtkEventController *motion_controller = gtk_event_controller_motion_new ();
+  g_signal_connect (motion_controller, "motion",
+                    G_CALLBACK (git_hash_view_motion_cb), hview);
+  gtk_widget_add_controller (GTK_WIDGET (hview), motion_controller);
+
+  GtkGesture *gesture = gtk_gesture_click_new ();
+  gtk_gesture_single_set_touch_only (GTK_GESTURE_SINGLE (gesture), FALSE);
+  gtk_gesture_single_set_button (GTK_GESTURE_SINGLE (gesture),
+                                 GDK_BUTTON_PRIMARY);
+  g_signal_connect (gesture,
+                    "released",
+                    G_CALLBACK (git_hash_view_click_released_cb),
+                    hview);
+  GtkEventController *event_controller = GTK_EVENT_CONTROLLER (gesture);
+  gtk_event_controller_set_propagation_phase (event_controller,
+                                              GTK_PHASE_CAPTURE);
+  gtk_widget_add_controller (GTK_WIDGET (hview), event_controller);
 }
 
 static void
@@ -206,16 +223,6 @@ git_hash_view_dispose (GObject *object)
 }
 
 static void
-git_hash_view_destroy (GtkWidget *widget)
-{
-  GitHashView *hview = (GitHashView *) widget;
-
-  git_hash_view_unref_text_view (hview);
-
-  GTK_WIDGET_CLASS (git_hash_view_parent_class)->destroy (widget);
-}
-
-static void
 git_hash_view_set_text_for_commit (PangoLayout *layout, GitCommit *commit)
 {
   const gchar *hash = git_commit_get_hash (commit), *p;
@@ -237,58 +244,20 @@ git_hash_view_set_text_for_commit (PangoLayout *layout, GitCommit *commit)
 }
 
 static void
-git_hash_view_realize (GtkWidget *widget)
-{
-  GtkAllocation allocation;
-  GdkWindowAttr attribs;
-
-  gtk_widget_get_allocation (widget, &allocation);
-
-  gtk_widget_set_realized (widget, TRUE);
-
-  memset (&attribs, 0, sizeof (attribs));
-  attribs.x = allocation.x;
-  attribs.y = allocation.y;
-  attribs.width = allocation.width;
-  attribs.height = allocation.height;
-  attribs.wclass = GDK_INPUT_OUTPUT;
-  attribs.window_type = GDK_WINDOW_CHILD;
-  attribs.visual = gtk_widget_get_visual (widget);
-  attribs.event_mask = gtk_widget_get_events (widget)
-    | GDK_EXPOSURE_MASK | GDK_POINTER_MOTION_MASK
-    | GDK_LEAVE_NOTIFY_MASK | GDK_ENTER_NOTIFY_MASK
-    | GDK_BUTTON_PRESS_MASK | GDK_BUTTON_RELEASE_MASK;
-
-  GdkWindow *window = gdk_window_new (gtk_widget_get_parent_window (widget),
-                                      &attribs,
-                                      GDK_WA_X | GDK_WA_Y | GDK_WA_VISUAL);
-
-  gtk_widget_set_window (widget, window);
-
-  gtk_widget_register_window (widget, window);
-}
-
-static gboolean
-git_hash_view_draw (GtkWidget *widget, cairo_t *cr)
+git_hash_view_snapshot (GtkWidget *widget, GtkSnapshot *snapshot)
 {
   GitHashView *hview = (GitHashView *) widget;
   GitHashViewPrivate *priv = git_hash_view_get_instance_private (hview);
-  GtkStyleContext *style_context = gtk_widget_get_style_context (widget);
-  GtkAllocation allocation;
-  gtk_widget_get_allocation (widget, &allocation);
-
-  gtk_render_background (style_context,
-                         cr,
-                         0, 0,
-                         allocation.width, allocation.height);
+  int width = gtk_widget_get_width (widget);
+  int height = gtk_widget_get_height (widget);
 
   if (priv->text_view == NULL || priv->source == NULL)
-    return FALSE;
+    return;
 
   GtkTextBuffer *text_buffer = gtk_text_view_get_buffer (priv->text_view);
 
   if (text_buffer == NULL)
-    return FALSE;
+    return;
 
   PangoLayout *layout = gtk_widget_create_pango_layout (widget, NULL);
 
@@ -307,6 +276,9 @@ git_hash_view_draw (GtkWidget *widget, cairo_t *cr)
                                buffer_top_y,
                                NULL /* line_top */);
 
+  gtk_snapshot_push_clip (snapshot,
+                          &GRAPHENE_RECT_INIT (0, 0, width, height));
+
   while (TRUE)
     {
       int line_buffer_y, line_height;
@@ -320,7 +292,7 @@ git_hash_view_draw (GtkWidget *widget, cairo_t *cr)
                                              0, line_buffer_y,
                                              &window_x, &window_y);
 
-      if (window_y >= allocation.height)
+      if (window_y >= height)
         break;
 
       int line_num = gtk_text_iter_get_line (&iter);
@@ -334,30 +306,33 @@ git_hash_view_draw (GtkWidget *widget, cairo_t *cr)
 
       git_commit_get_color (line->commit, &color);
 
-      cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-      cairo_rectangle (cr, 0, window_y, allocation.width, line_height);
-      cairo_fill_preserve (cr);
+      gtk_snapshot_append_color (snapshot,
+                                 &color, &GRAPHENE_RECT_INIT (0, window_y,
+                                                              width,
+                                                              line_height));
 
       /* Invert the color so that the text is guaranteed to be a
          different (albeit clashing) colour */
       color.red = 1.0 - color.red;
       color.green = 1.0 - color.green;
       color.blue = 1.0 - color.blue;
-      cairo_set_source_rgb (cr, color.red, color.green, color.blue);
-      cairo_save (cr);
-      cairo_clip (cr);
-      cairo_move_to (cr, 0, window_y);
+
       git_hash_view_set_text_for_commit (layout, line->commit);
-      pango_cairo_show_layout (cr, layout);
-      cairo_restore (cr);
+
+      gtk_snapshot_save (snapshot);
+      gtk_snapshot_translate (snapshot, &GRAPHENE_POINT_INIT (0, window_y));
+      gtk_snapshot_append_layout (snapshot,
+                                  layout,
+                                  &color);
+      gtk_snapshot_restore (snapshot);
 
       if (!gtk_text_view_forward_display_line (priv->text_view, &iter))
         break;
     }
 
-  g_object_unref (layout);
+  gtk_snapshot_pop (snapshot);
 
-  return FALSE;
+  g_object_unref (layout);
 }
 
 static GitCommit *
@@ -474,9 +449,6 @@ git_hash_view_query_tooltip (GtkWidget *widget,
 
   if (markup->len > 0)
     {
-      GtkAllocation allocation;
-      gtk_widget_get_allocation (widget, &allocation);
-
       GdkRectangle buffer_location;
       gtk_text_view_get_iter_location (priv->text_view,
                                        &iter,
@@ -491,8 +463,9 @@ git_hash_view_query_tooltip (GtkWidget *widget,
       GdkRectangle tip_area;
       tip_area.x = 0;
       tip_area.y = MAX (0, window_y);
-      tip_area.width = allocation.width;
-      tip_area.height = MIN (allocation.height - tip_area.y,
+      tip_area.width = gtk_widget_get_width (GTK_WIDGET (hview));
+      tip_area.height = MIN (gtk_widget_get_height (GTK_WIDGET (hview))
+                             - tip_area.y,
                              buffer_location.height);
       gtk_tooltip_set_markup (tooltip, markup->str);
       gtk_tooltip_set_tip_area (tooltip, &tip_area);
@@ -558,15 +531,16 @@ git_hash_view_new (GtkTextView *text_view)
   return widget;
 }
 
-static gboolean
-git_hash_view_motion_notify_event (GtkWidget *widget,
-                                   GdkEventMotion *event)
+static void
+git_hash_view_motion_cb (GtkEventControllerMotion *controller,
+                         double x,
+                         double y,
+                         GitHashView *hview)
 {
-  GitHashView *hview = (GitHashView *) widget;
   GitHashViewPrivate *priv = git_hash_view_get_instance_private (hview);
 
   GtkTextIter iter;
-  GitCommit *commit = get_iter_and_commit_at_y (hview, event->y, &iter);
+  GitCommit *commit = get_iter_and_commit_at_y (hview, y, &iter);
 
   /* Show the hand cursor when the pointer is over a commit hash */
   if (commit)
@@ -576,35 +550,30 @@ git_hash_view_motion_notify_event (GtkWidget *widget,
           /* Create the hand cursor if we haven't already got
              one. This will be unref'd in the dispose handler */
           if (priv->hand_cursor == NULL)
-            priv->hand_cursor
-              = gdk_cursor_new_for_display (gtk_widget_get_display (widget),
-                                            GDK_HAND2);
-          gdk_window_set_cursor (gtk_widget_get_window (widget),
-                                 priv->hand_cursor);
+            priv->hand_cursor = gdk_cursor_new_from_name ("pointer", NULL);
+          gtk_widget_set_cursor (GTK_WIDGET (hview), priv->hand_cursor);
 
           priv->hand_cursor_set = TRUE;
         }
     }
-  else
+  else if (priv->hand_cursor_set)
     {
-      if (priv->hand_cursor_set)
-        {
-          gdk_window_set_cursor (gtk_widget_get_window (widget), NULL);
-          priv->hand_cursor_set = FALSE;
-        }
+      gtk_widget_set_cursor (GTK_WIDGET (hview), NULL);
+      priv->hand_cursor_set = FALSE;
     }
-
-  return FALSE;
 }
 
-static gboolean
-git_hash_view_button_release_event (GtkWidget *widget,
-                                    GdkEventButton *event)
+static void
+git_hash_view_click_released_cb (GtkGestureClick *self,
+                                 gint n_press,
+                                 gdouble x,
+                                 gdouble y,
+                                 gpointer user_data)
 {
-  GitHashView *hview = (GitHashView *) widget;
+  GitHashView *hview = user_data;
 
   GtkTextIter iter;
-  GitCommit *commit = get_iter_and_commit_at_y (hview, event->y, &iter);
+  GitCommit *commit = get_iter_and_commit_at_y (hview, y, &iter);
 
   if (commit)
     {
@@ -613,8 +582,6 @@ git_hash_view_button_release_event (GtkWidget *widget,
                      0,
                      commit);
     }
-
-  return FALSE;
 }
 
 static GtkSizeRequestMode
@@ -624,37 +591,47 @@ git_hash_view_get_request_mode (GtkWidget *widget)
 }
 
 static void
-git_hash_view_get_preferred_width (GtkWidget *widget,
-                                   gint *minimum_width,
-                                   gint *natural_width)
+git_hash_view_measure (GtkWidget *widget,
+                       GtkOrientation orientation,
+                       int for_size,
+                       int* minimum,
+                       int* natural,
+                       int* minimum_baseline,
+                       int* natural_baseline)
 {
-  PangoLayout *layout = gtk_widget_create_pango_layout (widget, NULL);
-  char dummy_git_hash[GIT_HASH_VIEW_COMMIT_HASH_LENGTH];
+  switch (orientation)
+    {
+    case GTK_ORIENTATION_VERTICAL:
+      *minimum = 10;
+      *natural = 10;
+      break;
+    case GTK_ORIENTATION_HORIZONTAL:
+      {
+        PangoLayout *layout = gtk_widget_create_pango_layout (widget, NULL);
+        char dummy_git_hash[GIT_HASH_VIEW_COMMIT_HASH_LENGTH];
 
-  memset(dummy_git_hash, '0', sizeof dummy_git_hash);
-  pango_layout_set_text (layout,
-                         dummy_git_hash,
-                         GIT_HASH_VIEW_COMMIT_HASH_LENGTH);
+        memset(dummy_git_hash, '0', sizeof dummy_git_hash);
+        pango_layout_set_text (layout,
+                               dummy_git_hash,
+                               GIT_HASH_VIEW_COMMIT_HASH_LENGTH);
 
-  PangoRectangle extents;
-  pango_layout_get_extents (layout,
-                            NULL, /* ink_rect */
-                            &extents /* logical_rect */);
+        PangoRectangle extents;
+        pango_layout_get_extents (layout,
+                                  NULL, /* ink_rect */
+                                  &extents /* logical_rect */);
 
-  gint pixel_width = (extents.width + PANGO_SCALE - 1) / PANGO_SCALE;
+        gint pixel_width = (extents.width + PANGO_SCALE - 1) / PANGO_SCALE;
 
-  *minimum_width = pixel_width;
-  *natural_width = pixel_width;
+        *minimum = pixel_width;
+        *natural = pixel_width;
 
-  g_object_unref (layout);
-}
+        g_object_unref (layout);
+      }
+      break;
+    }
 
-static void
-git_hash_view_get_preferred_height (GtkWidget *widget,
-                                    gint *minimum_height,
-                                    gint *natural_height)
-{
-  *minimum_height = *natural_height = 10;
+  *minimum_baseline = -1;
+  *natural_baseline = -1;
 }
 
 static void

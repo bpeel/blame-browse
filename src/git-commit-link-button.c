@@ -32,11 +32,10 @@ static void git_commit_link_button_get_property (GObject *object,
                                                  guint property_id,
                                                  GValue *value,
                                                  GParamSpec *pspec);
-static void git_commit_link_button_clicked (GtkButton *button);
 
 struct _GitCommitLinkButton
 {
-  GtkLinkButton parent;
+  GtkButton parent;
 };
 
 typedef struct
@@ -46,7 +45,7 @@ typedef struct
 
 G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitLinkButton,
                                   git_commit_link_button,
-                                  GTK_TYPE_LINK_BUTTON);
+                                  GTK_TYPE_BUTTON);
 
 enum
   {
@@ -59,14 +58,11 @@ static void
 git_commit_link_button_class_init (GitCommitLinkButtonClass *klass)
 {
   GObjectClass *gobject_class = (GObjectClass *) klass;
-  GtkButtonClass *button_class = (GtkButtonClass *) klass;
   GParamSpec *pspec;
 
   gobject_class->dispose = git_commit_link_button_dispose;
   gobject_class->set_property = git_commit_link_button_set_property;
   gobject_class->get_property = git_commit_link_button_get_property;
-
-  button_class->clicked = git_commit_link_button_clicked;
 
   pspec = g_param_spec_object ("commit",
                                "Commit",
@@ -79,6 +75,14 @@ git_commit_link_button_class_init (GitCommitLinkButtonClass *klass)
 static void
 git_commit_link_button_init (GitCommitLinkButton *self)
 {
+  gtk_button_set_has_frame (GTK_BUTTON (self), FALSE);
+  gtk_widget_set_state_flags (GTK_WIDGET (self),
+                              GTK_STATE_FLAG_LINK,
+                              FALSE);
+
+  gtk_widget_add_css_class (GTK_WIDGET (self), "link");
+
+  gtk_widget_set_cursor_from_name (GTK_WIDGET (self), "pointer");
 }
 
 static void
@@ -142,13 +146,6 @@ git_commit_link_button_get_property (GObject *object,
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
       break;
     }
-}
-
-static void
-git_commit_link_button_clicked (GtkButton *button)
-{
-  /* Override the default clicked handler so that it won't try to open
-     the commit hash as a URL */
 }
 
 void

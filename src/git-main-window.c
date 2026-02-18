@@ -54,7 +54,7 @@ static void git_main_window_on_forward (GSimpleAction *action,
                                         GVariant *parameter,
                                         gpointer user_data);
 
-static void git_main_window_on_revision (GtkEntry *entry,
+static void git_main_window_on_revision (GtkText *entry,
                                          GitMainWindow *main_window);
 
 struct _GitMainWindow
@@ -219,6 +219,8 @@ git_main_window_dispose (GObject *object)
       priv->forward_action = NULL;
     }
 
+  gtk_widget_dispose_template (GTK_WIDGET (self), GIT_TYPE_MAIN_WINDOW);
+
   G_OBJECT_CLASS (git_main_window_parent_class)->dispose (object);
 }
 
@@ -258,8 +260,8 @@ git_main_window_do_set_file (GitMainWindow *main_window,
                               file, revision);
 
   if (priv->revision_bar)
-    gtk_entry_set_text (GTK_ENTRY (priv->revision_bar),
-                        revision ? revision : "");
+    gtk_editable_set_text (GTK_EDITABLE (priv->revision_bar),
+                           revision ? revision : "");
 }
 
 static void
@@ -430,8 +432,7 @@ git_main_window_on_commit_selected (GitSourceView *sview,
                                    -1, 400);
 
       /* Keep the window alive when it is closed */
-      g_signal_connect (priv->commit_dialog, "delete_event",
-                        G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+      gtk_window_set_hide_on_close (GTK_WINDOW (priv->commit_dialog), TRUE);
 
       priv->commit_response_handler
         = g_signal_connect (priv->commit_dialog, "response",
@@ -476,14 +477,13 @@ git_main_window_on_open (GSimpleAction *action,
         = gtk_file_chooser_dialog_new (_("Open File"),
                                        GTK_WINDOW (main_window),
                                        GTK_FILE_CHOOSER_ACTION_OPEN,
-                                       dgettext ("gtk30", "_Open"),
+                                       dgettext ("gtk40", "_Open"),
                                        GTK_RESPONSE_OK,
                                        NULL);
       g_object_ref_sink (priv->file_dialog);
 
       /* Keep the window alive when it is closed */
-      g_signal_connect (priv->file_dialog, "delete_event",
-                        G_CALLBACK (gtk_widget_hide_on_delete), NULL);
+      gtk_window_set_hide_on_close (GTK_WINDOW (priv->file_dialog), TRUE);
 
       priv->file_response_handler
         = g_signal_connect (priv->file_dialog, "response",
@@ -566,7 +566,7 @@ git_main_window_on_forward (GSimpleAction *action,
 }
 
 static void
-git_main_window_on_revision (GtkEntry *entry,
+git_main_window_on_revision (GtkText *entry,
                              GitMainWindow *main_window)
 {
   GitMainWindowPrivate *priv =
@@ -576,7 +576,7 @@ git_main_window_on_revision (GtkEntry *entry,
     {
       GitMainWindowHistoryItem *item
         = (GitMainWindowHistoryItem *) priv->history_pos->data;
-      const gchar *revision = gtk_entry_get_text (entry);
+      const gchar *revision = gtk_editable_get_text (GTK_EDITABLE (entry));
 
       git_main_window_set_file (main_window, item->file,
                                 strlen (revision) ? revision : NULL);

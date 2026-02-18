@@ -8,7 +8,7 @@
     <child type="titlebar">
       <object class="GtkHeaderBar">
         <property name="visible">True</property>
-        <property name="show-close-button">True</property>
+        <property name="show-title-buttons">True</property>
         <child type="title">
           <object class="GtkLabel" id="tabs">
             <property name="visible">True</property>
@@ -18,18 +18,14 @@
             </style>
           </object>
         </child>
-        <child>
+        <child type="end">
           <object class="GtkMenuButton" id="menu_button">
             <property name="visible">True</property>
             <property name="direction">none</property>
-            <property name="use-popover">True</property>
             <style>
               <class name="image-button"/>
             </style>
           </object>
-          <packing>
-            <property name="pack-type">end</property>
-          </packing>
         </child>
         <child>
           <object class="GtkButton">
@@ -89,23 +85,15 @@
           <object class="GitSourceView" id="source_view">
             <property name="can-focus">True</property>
             <property name="visible">True</property>
+            <property name="vexpand">True</property>
           </object>
-          <packing>
-            <property name="expand">True</property>
-            <property name="fill">True</property>
-            <property name="position">1</property>
-          </packing>
         </child>
         <child>
           <object class="GtkStatusbar" id="statusbar">
             <property name="can-focus">False</property>
             <property name="visible">True</property>
+            <property name="vexpand">False</property>
           </object>
-          <packing>
-            <property name="expand">False</property>
-            <property name="fill">True</property>
-            <property name="position">2</property>
-          </packing>
         </child>
       </object>
     </child>
