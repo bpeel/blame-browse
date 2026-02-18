@@ -413,7 +413,7 @@ git_main_window_on_commit_response (GtkDialog *dialog, gint response,
                                   git_commit_get_hash (commit));
     }
 
-  gtk_widget_hide (GTK_WIDGET (dialog));
+  gtk_widget_set_visible (GTK_WIDGET (dialog), FALSE);
 }
 
 static void
