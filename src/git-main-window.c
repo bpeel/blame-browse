@@ -65,14 +65,15 @@ struct _GitMainWindow
 typedef struct
 {
   GtkWidget *revision_bar, *source_view, *statusbar, *menu_button;
-  GtkWidget *commit_dialog, *file_dialog;
+  GtkWidget *commit_dialog;
+
+  GCancellable *file_dialog_cancellable;
 
   guint source_state_context;
   guint source_state_id;
   guint source_state_handler;
   guint commit_selected_handler;
   guint commit_response_handler;
-  guint file_response_handler;
   guint revision_activated_handler;
 
   GList *history;
@@ -180,6 +181,12 @@ git_main_window_dispose (GObject *object)
   GitMainWindow *self = (GitMainWindow *) object;
   GitMainWindowPrivate *priv = git_main_window_get_instance_private (self);
 
+  if (priv->file_dialog_cancellable)
+    {
+      g_cancellable_cancel (priv->file_dialog_cancellable);
+      g_clear_object (&priv->file_dialog_cancellable);
+    }
+
   if (priv->source_view)
     {
       g_signal_handler_disconnect (priv->source_view,
@@ -200,12 +207,6 @@ git_main_window_dispose (GObject *object)
                                    priv->commit_response_handler);
       g_object_unref (priv->commit_dialog);
       priv->commit_dialog = NULL;
-    }
-
-  if (priv->file_dialog)
-    {
-      g_object_unref (priv->file_dialog);
-      priv->file_dialog = NULL;
     }
 
   if (priv->back_action)
@@ -446,20 +447,26 @@ git_main_window_on_commit_selected (GitSourceView *sview,
 }
 
 static void
-git_main_window_on_file_response (GtkDialog *dialog, gint response,
-                                  GitMainWindow *main_window)
+git_main_window_file_dialog_ready (GObject *source,
+                                   GAsyncResult *result,
+                                   gpointer user_data)
 {
-  if (response == GTK_RESPONSE_OK)
-    {
-      GFile *file = gtk_file_chooser_get_file (GTK_FILE_CHOOSER (dialog));
+  GitMainWindow *main_window = user_data;
+  GitMainWindowPrivate *priv
+    = git_main_window_get_instance_private (main_window);
 
-      if (file)
-        git_main_window_set_file (main_window, file, NULL);
+  g_clear_object (&priv->file_dialog_cancellable);
+
+  GFile *file = gtk_file_dialog_open_finish (GTK_FILE_DIALOG (source),
+                                             result,
+                                             NULL /* error */);
+
+  if (file)
+    {
+      git_main_window_set_file (main_window, file, NULL);
 
       g_object_unref (file);
     }
-
-  gtk_widget_hide (GTK_WIDGET (dialog));
 }
 
 static void
@@ -471,27 +478,22 @@ git_main_window_on_open (GSimpleAction *action,
   GitMainWindowPrivate *priv =
     git_main_window_get_instance_private (main_window);
 
-  if (priv->file_dialog == NULL)
+  if (priv->file_dialog_cancellable)
     {
-      priv->file_dialog
-        = gtk_file_chooser_dialog_new (_("Open File"),
-                                       GTK_WINDOW (main_window),
-                                       GTK_FILE_CHOOSER_ACTION_OPEN,
-                                       dgettext ("gtk40", "_Open"),
-                                       GTK_RESPONSE_OK,
-                                       NULL);
-      g_object_ref_sink (priv->file_dialog);
-
-      /* Keep the window alive when it is closed */
-      gtk_window_set_hide_on_close (GTK_WINDOW (priv->file_dialog), TRUE);
-
-      priv->file_response_handler
-        = g_signal_connect (priv->file_dialog, "response",
-                            G_CALLBACK (git_main_window_on_file_response),
-                            main_window);
+      /* There’s already a file dialog open */
+      return;
     }
 
-  gtk_window_present (GTK_WINDOW (priv->file_dialog));
+  priv->file_dialog_cancellable = g_cancellable_new ();
+
+  GtkFileDialog *dialog = gtk_file_dialog_new ();
+  gtk_file_dialog_set_modal (dialog, FALSE);
+  gtk_file_dialog_open (dialog,
+                        GTK_WINDOW (main_window),
+                        priv->file_dialog_cancellable,
+                        git_main_window_file_dialog_ready,
+                        main_window);
+  g_object_unref (dialog);
 }
 
 static void
