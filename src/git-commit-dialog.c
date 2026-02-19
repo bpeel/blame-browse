@@ -23,6 +23,7 @@
 #include <glib/gi18n.h>
 
 #include "git-commit-link-button.h"
+#include "git-marshal.h"
 
 static void git_commit_dialog_dispose (GObject *object);
 
@@ -41,12 +42,14 @@ static void git_commit_dialog_unref_buttons (GitCommitDialog *cdiag);
 
 static void git_commit_dialog_copy_hash (GitCommitDialog *cdiag);
 
-typedef struct _GitCommitDialogButtonData GitCommitDialogButtonData;
+static void git_commit_dialog_on_view_blame (GtkButton *button,
+                                             gpointer user_data);
 
-struct _GitCommitDialog
-{
-  GtkDialog parent;
-};
+static gboolean git_commit_dialog_on_escape (GtkWidget *widget,
+                                             GVariant *args,
+                                             gpointer user_data);
+
+typedef struct _GitCommitDialogButtonData GitCommitDialogButtonData;
 
 typedef struct
 {
@@ -54,15 +57,18 @@ typedef struct
   guint has_log_data_handler;
   GitCommitDialogButtonData *buttons;
 
-  GtkWidget *grid, *log_view, *commit_label;
+  GtkWidget *grid, *commit_label, *copy_button, *log_view;
+  GtkWidget *view_blame_button, *close_button;
+
+  guint view_blame_handler;
+  guint close_handler;
 
   guint copy_handler;
-  GtkWidget *copy_button;
 } GitCommitDialogPrivate;
 
-G_DEFINE_FINAL_TYPE_WITH_PRIVATE (GitCommitDialog,
-                                  git_commit_dialog,
-                                  GTK_TYPE_DIALOG);
+G_DEFINE_TYPE_WITH_PRIVATE (GitCommitDialog,
+                            git_commit_dialog,
+                            GTK_TYPE_WINDOW);
 
 struct _GitCommitDialogButtonData
 {
@@ -74,10 +80,19 @@ struct _GitCommitDialogButtonData
 
 enum
   {
+    VIEW_BLAME,
+
+    LAST_SIGNAL
+  };
+
+enum
+  {
     PROP_0,
 
     PROP_COMMIT
   };
+
+static guint client_signals[LAST_SIGNAL];
 
 static void
 git_commit_dialog_class_init (GitCommitDialogClass *klass)
@@ -95,72 +110,73 @@ git_commit_dialog_class_init (GitCommitDialogClass *klass)
                                GIT_TYPE_COMMIT,
                                G_PARAM_READABLE | G_PARAM_WRITABLE);
   g_object_class_install_property (gobject_class, PROP_COMMIT, pspec);
+
+  client_signals[VIEW_BLAME]
+    = g_signal_new ("view-blame",
+                    G_OBJECT_CLASS_TYPE (gobject_class),
+                    G_SIGNAL_RUN_LAST,
+                    G_STRUCT_OFFSET (GitCommitDialogClass, view_blame),
+                    NULL, NULL,
+                    _git_marshal_VOID__OBJECT,
+                    G_TYPE_NONE, 1,
+                    GIT_TYPE_COMMIT);
+
+  gtk_widget_class_add_binding (GTK_WIDGET_CLASS (klass),
+                                GDK_KEY_Escape,
+                                0, /* mods */
+                                git_commit_dialog_on_escape,
+                                NULL /* format_string */);
+
+  const char *resource_name = "/uk/co/busydoingnothing/blamebrowse/"
+    "commit-dialog.ui";
+
+  gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (klass),
+                                               resource_name);
+
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitCommitDialog,
+                                                grid);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitCommitDialog,
+                                                commit_label);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitCommitDialog,
+                                                copy_button);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitCommitDialog,
+                                                log_view);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitCommitDialog,
+                                                view_blame_button);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitCommitDialog,
+                                                close_button);
 }
 
 static void
 git_commit_dialog_init (GitCommitDialog *self)
 {
   GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (self);
-  GtkWidget *content, *scrolled_window;
 
-  priv->grid = g_object_ref_sink (gtk_grid_new ());
-  gtk_grid_set_column_spacing (GTK_GRID (priv->grid), 5);
+  gtk_widget_init_template (GTK_WIDGET (self));
 
-  /* Labels for the commit hash */
-  GtkWidget *label = gtk_label_new (NULL);
-  g_object_set (label, "use-markup", TRUE,
-                "label", _("<b>Commit</b>"),
-                "xalign", 0.0f,
-                NULL);
-  gtk_grid_attach (GTK_GRID (priv->grid), label, 0, 0, 1, 1);
-
-  priv->commit_label = g_object_ref_sink (gtk_label_new (NULL));
-  gtk_grid_attach (GTK_GRID (priv->grid),
-                   priv->commit_label,
-                   1, 0, 1, 1);
-
-  priv->copy_button = gtk_button_new_from_icon_name ("edit-copy");
-  g_object_ref_sink (priv->copy_button);
   priv->copy_handler =
     g_signal_connect_swapped (priv->copy_button,
                               "clicked",
                               G_CALLBACK (git_commit_dialog_copy_hash),
                               self);
-  gtk_grid_attach (GTK_GRID (priv->grid),
-                   priv->copy_button,
-                   2, 0, 1, 1);
 
-  content = gtk_box_new (GTK_ORIENTATION_VERTICAL, 11);
+  priv->view_blame_handler =
+    g_signal_connect (priv->view_blame_button,
+                      "clicked",
+                      G_CALLBACK (git_commit_dialog_on_view_blame),
+                      self);
 
-  gtk_box_append (GTK_BOX (content), priv->grid);
-
-  scrolled_window = gtk_scrolled_window_new ();
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolled_window),
-                                  GTK_POLICY_AUTOMATIC,
-                                  GTK_POLICY_AUTOMATIC);
-
-  priv->log_view = g_object_ref_sink (gtk_text_view_new ());
-  g_object_set (priv->log_view,
-                "editable", FALSE,
-                "cursor-visible", FALSE,
-                "left-margin", 8,
-                "right-margin", 8,
-                NULL);
-  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (scrolled_window),
-                                 priv->log_view);
-
-  gtk_widget_set_vexpand (scrolled_window, TRUE);
-  gtk_box_append (GTK_BOX (content), scrolled_window);
-
-  GtkWidget *content_area = gtk_dialog_get_content_area (GTK_DIALOG (self));
-
-  gtk_box_append (GTK_BOX (content_area), content);
-
-  gtk_dialog_add_buttons (GTK_DIALOG (self),
-                          _("View _blame"),
-                          GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME,
-                          dgettext("gtk40", "_Close"), GTK_RESPONSE_CLOSE,
-                          NULL);
+  priv->close_handler =
+    g_signal_connect_swapped (priv->close_button,
+                              "clicked",
+                              G_CALLBACK (gtk_window_close),
+                              self);
 }
 
 static void
@@ -213,30 +229,19 @@ git_commit_dialog_dispose (GObject *object)
   git_commit_dialog_unref_commit (self);
   git_commit_dialog_unref_buttons (self);
 
-  if (priv->grid)
-    {
-      g_object_unref (priv->grid);
-      priv->grid = NULL;
-    }
-
-  if (priv->log_view)
-    {
-      g_object_unref (priv->log_view);
-      priv->log_view = NULL;
-    }
-
-  if (priv->commit_label)
-    {
-      g_object_unref (priv->commit_label);
-      priv->commit_label = NULL;
-    }
-
   if (priv->copy_button)
+    g_signal_handler_disconnect (priv->copy_button, priv->copy_handler);
+
+  if (priv->view_blame_button)
     {
-      g_signal_handler_disconnect (priv->copy_button, priv->copy_handler);
-      g_object_unref (priv->copy_button);
-      priv->copy_button = NULL;
+      g_signal_handler_disconnect (priv->view_blame_button,
+                                   priv->view_blame_handler);
     }
+
+  if (priv->close_button)
+    g_signal_handler_disconnect (priv->close_button, priv->close_handler);
+
+  gtk_widget_dispose_template (GTK_WIDGET (self), GIT_TYPE_COMMIT_DIALOG);
 
   G_OBJECT_CLASS (git_commit_dialog_parent_class)->dispose (object);
 }
@@ -288,7 +293,6 @@ static void
 git_commit_dialog_update (GitCommitDialog *cdiag)
 {
   GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
-  GtkWidget *widget;
 
   git_commit_dialog_unref_buttons (cdiag);
 
@@ -313,7 +317,6 @@ git_commit_dialog_update (GitCommitDialog *cdiag)
           GtkWidget *label = gtk_label_new (NULL);
           g_object_set (label, "use-markup", TRUE,
                         "label", _("<b>Parent</b>"),
-                        "xalign", 0.0f,
                         NULL);
           gtk_grid_attach (GTK_GRID (priv->grid),
                            label,
@@ -438,4 +441,27 @@ git_commit_dialog_copy_hash (GitCommitDialog *cdiag)
                                   git_commit_get_hash (priv->commit));
         }
     }
+}
+
+static void
+git_commit_dialog_on_view_blame (GtkButton *button,
+                                 gpointer user_data)
+{
+  GitCommitDialog *cdiag = user_data;
+  GitCommitDialogPrivate *priv = git_commit_dialog_get_instance_private (cdiag);
+
+  if (priv->commit)
+    g_signal_emit (cdiag, client_signals[VIEW_BLAME], 0, priv->commit);
+}
+
+static gboolean
+git_commit_dialog_on_escape (GtkWidget *widget,
+                             GVariant *args,
+                             gpointer user_data)
+{
+  GitCommitDialog *cdiag = GIT_COMMIT_DIALOG (widget);
+
+  gtk_window_close (GTK_WINDOW (cdiag));
+
+  return TRUE;
 }

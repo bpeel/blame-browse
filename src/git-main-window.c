@@ -34,9 +34,12 @@ static void git_main_window_finalize (GObject *object);
 
 static void git_main_window_update_history_actions (GitMainWindow *main_window);
 
-static void git_main_window_on_commit_selected (GitSourceView *sview,
+static void git_main_window_on_commit_selected (GitSourceView *source_view,
                                                 GitCommit *commit,
                                                 GitMainWindow *main_window);
+static void git_main_window_on_view_blame (GitCommitDialog *cdiag,
+                                           GitCommit *commit,
+                                           GitMainWindow *main_window);
 
 static void git_main_window_free_history_item (GitMainWindowHistoryItem *item);
 
@@ -69,7 +72,7 @@ typedef struct
   GCancellable *file_dialog_cancellable;
 
   guint commit_selected_handler;
-  guint commit_response_handler;
+  guint view_blame_handler;
   guint revision_activated_handler;
 
   GList *history;
@@ -187,7 +190,7 @@ git_main_window_dispose (GObject *object)
   if (priv->commit_dialog)
     {
       g_signal_handler_disconnect (priv->commit_dialog,
-                                   priv->commit_response_handler);
+                                   priv->view_blame_handler);
       g_object_unref (priv->commit_dialog);
       priv->commit_dialog = NULL;
     }
@@ -328,30 +331,27 @@ git_main_window_update_history_actions (GitMainWindow *main_window)
 }
 
 static void
-git_main_window_on_commit_response (GtkDialog *dialog, gint response,
-                                    GitMainWindow *main_window)
+git_main_window_on_view_blame (GitCommitDialog *cdiag,
+                               GitCommit *commit,
+                               GitMainWindow *main_window)
 {
   GitMainWindowPrivate *priv =
     git_main_window_get_instance_private (main_window);
 
-  if (response == GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
-      && priv->history_pos)
+  if (priv->history_pos)
     {
-      GitCommit *commit
-        = git_commit_dialog_get_commit (GIT_COMMIT_DIALOG (dialog));
       GitMainWindowHistoryItem *item
         = (GitMainWindowHistoryItem *) priv->history_pos->data;
 
-      if (commit)
-        git_main_window_set_file (main_window, item->file,
-                                  git_commit_get_hash (commit));
+      git_main_window_set_file (main_window, item->file,
+                                git_commit_get_hash (commit));
     }
 
-  gtk_widget_set_visible (GTK_WIDGET (dialog), FALSE);
+  gtk_widget_set_visible (GTK_WIDGET (cdiag), FALSE);
 }
 
 static void
-git_main_window_on_commit_selected (GitSourceView *sview,
+git_main_window_on_commit_selected (GitSourceView *source_view,
                                     GitCommit *commit,
                                     GitMainWindow *main_window)
 {
@@ -368,10 +368,10 @@ git_main_window_on_commit_selected (GitSourceView *sview,
       /* Keep the window alive when it is closed */
       gtk_window_set_hide_on_close (GTK_WINDOW (priv->commit_dialog), TRUE);
 
-      priv->commit_response_handler
-        = g_signal_connect (priv->commit_dialog, "response",
-                            G_CALLBACK (git_main_window_on_commit_response),
-                            main_window);
+      priv->view_blame_handler = g_signal_connect
+              (priv->commit_dialog, "view-blame",
+               G_CALLBACK (git_main_window_on_view_blame),
+               main_window);
     }
 
   g_object_set (priv->commit_dialog, "commit", commit, NULL);

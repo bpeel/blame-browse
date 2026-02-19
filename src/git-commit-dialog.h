@@ -25,11 +25,19 @@ G_BEGIN_DECLS
 
 #define GIT_TYPE_COMMIT_DIALOG git_commit_dialog_get_type ()
 
-G_DECLARE_FINAL_TYPE (GitCommitDialog,
-                      git_commit_dialog,
-                      GIT,
-                      COMMIT_DIALOG,
-                      GtkDialog);
+G_DECLARE_DERIVABLE_TYPE (GitCommitDialog,
+                          git_commit_dialog,
+                          GIT,
+                          COMMIT_DIALOG,
+                          GtkWindow);
+
+struct _GitCommitDialogClass
+{
+  GtkWindowClass parent_class;
+
+  void (* view_blame) (GitCommitDialog *cdiag,
+                       GitCommit *commit);
+};
 
 enum {
   GIT_COMMIT_DIALOG_RESPONSE_VIEW_BLAME
