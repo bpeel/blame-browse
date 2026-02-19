@@ -511,9 +511,16 @@ git_main_window_on_revision (GtkText *entry,
     {
       GitMainWindowHistoryItem *item
         = (GitMainWindowHistoryItem *) priv->history_pos->data;
-      const gchar *revision = gtk_editable_get_text (GTK_EDITABLE (entry));
+      const gchar *entry_text = gtk_editable_get_text (GTK_EDITABLE (entry));
+
+      /* Copy the entry text because we will end up using to update
+       * the entry text and that will go wrong if we use the pointer
+       * into the entry’s buffer. */
+      char *revision = strlen (entry_text) ? g_strdup (entry_text) : NULL;
 
       git_main_window_set_file (main_window, item->file,
                                 strlen (revision) ? revision : NULL);
+
+      g_free (revision);
     }
 }
