@@ -18,6 +18,7 @@
               <object class="GtkTextView" id="text_view">
                 <property name="editable">False</property>
                 <property name="monospace">True</property>
+                <property name="cursor-visible">False</property>
               </object>
             </property>
             <property name="hexpand">True</property>
