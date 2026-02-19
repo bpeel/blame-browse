@@ -53,7 +53,7 @@ typedef struct
 
 G_DEFINE_TYPE_WITH_PRIVATE (GitSourceView,
                             git_source_view,
-                            GTK_TYPE_BOX);
+                            GTK_TYPE_WIDGET);
 
 enum
   {
@@ -99,6 +99,21 @@ git_source_view_class_init (GitSourceViewClass *klass)
                     G_TYPE_NONE, 1,
                     GIT_TYPE_COMMIT);
 
+  const char *resource_name
+    = "/uk/co/busydoingnothing/blamebrowse/source-view.ui";
+
+  gtk_widget_class_set_template_from_resource (GTK_WIDGET_CLASS (klass),
+                                               resource_name);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
+                                                scrolled_win);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
+                                                hash_view);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
+                                                text_view);
+
   gtk_widget_class_set_layout_manager_type ((GtkWidgetClass *) (klass),
                                             GTK_TYPE_BOX_LAYOUT);
 }
@@ -108,41 +123,21 @@ git_source_view_init (GitSourceView *sview)
 {
   GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
 
-  g_object_set (sview,
-                "spacing", 3,
-                "orientation", GTK_ORIENTATION_HORIZONTAL,
-                NULL);
+  g_type_ensure (GIT_TYPE_HASH_VIEW);
+
+  gtk_widget_init_template (GTK_WIDGET (sview));
+
   priv->state = GIT_SOURCE_VIEW_READY;
   priv->state_error = NULL;
-
-  priv->text_view = gtk_text_view_new ();
-
-  priv->hash_view = git_hash_view_new (GTK_TEXT_VIEW (priv->text_view));
-  gtk_widget_set_hexpand (priv->hash_view, FALSE);
-  gtk_widget_set_parent (priv->hash_view, GTK_WIDGET (sview));
 
   priv->commit_selected_handler
     = g_signal_connect (priv->hash_view, "commit-selected",
                         G_CALLBACK (git_source_view_on_commit_selected), sview);
 
-
-  gtk_text_view_set_monospace (GTK_TEXT_VIEW (priv->text_view), TRUE);
-  gtk_text_view_set_editable (GTK_TEXT_VIEW (priv->text_view), FALSE);
-
-  priv->scrolled_win = gtk_scrolled_window_new ();
-  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (priv->scrolled_win),
-                                  GTK_POLICY_AUTOMATIC,
-                                  GTK_POLICY_AUTOMATIC);
-
-  gtk_scrolled_window_set_child (GTK_SCROLLED_WINDOW (priv->scrolled_win),
-                                 priv->text_view);
-  gtk_widget_set_hexpand (priv->scrolled_win, TRUE);
-
-  gtk_widget_set_parent (priv->scrolled_win, GTK_WIDGET (sview));
-
   GtkLayoutManager *layout = gtk_widget_get_layout_manager (GTK_WIDGET (sview));
   gtk_orientable_set_orientation (GTK_ORIENTABLE (layout),
                                   GTK_ORIENTATION_HORIZONTAL);
+  gtk_box_layout_set_spacing (GTK_BOX_LAYOUT (layout), 3);
 }
 
 static void
@@ -179,8 +174,13 @@ git_source_view_dispose (GObject *object)
       priv->state_error = NULL;
     }
 
-  g_clear_pointer (&priv->scrolled_win, gtk_widget_unparent);
-  g_clear_pointer (&priv->hash_view, gtk_widget_unparent);
+  if (priv->hash_view)
+    {
+      g_signal_handler_disconnect (priv->hash_view,
+                                   priv->commit_selected_handler);
+    }
+
+  gtk_widget_dispose_template (GTK_WIDGET (sview), GIT_TYPE_SOURCE_VIEW);
 
   G_OBJECT_CLASS (git_source_view_parent_class)->dispose (object);
 }

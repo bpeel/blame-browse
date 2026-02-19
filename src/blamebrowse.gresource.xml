@@ -2,6 +2,7 @@
 <gresources>
   <gresource prefix="/uk/co/busydoingnothing/blamebrowse">
     <file preprocess="xml-stripblanks">window.ui</file>
+    <file preprocess="xml-stripblanks">source-view.ui</file>
     <file preprocess="xml-stripblanks">menu.ui</file>
   </gresource>
 </gresources>

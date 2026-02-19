@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <template class="GitSourceView" parent="GtkWidget">
+    <child>
+      <object class="GitHashView" id="hash_view">
+        <property name="text-view">text_view</property>
+        <property name="hexpand">False</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkScrolledWindow" id="scrolled_win">
+        <property name="child">
+          <object class="GtkTextView" id="text_view">
+            <property name="editable">False</property>
+            <property name="monospace">True</property>
+          </object>
+        </property>
+        <property name="hexpand">True</property>
+        <property name="vscrollbar-policy">automatic</property>
+        <property name="hscrollbar-policy">automatic</property>
+      </object>
+    </child>
+  </template>
+</interface>
