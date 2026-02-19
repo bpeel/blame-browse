@@ -32,7 +32,6 @@ typedef struct _GitMainWindowHistoryItem GitMainWindowHistoryItem;
 static void git_main_window_dispose (GObject *object);
 static void git_main_window_finalize (GObject *object);
 
-static void git_main_window_update_source_state (GitMainWindow *main_window);
 static void git_main_window_update_history_actions (GitMainWindow *main_window);
 
 static void git_main_window_on_commit_selected (GitSourceView *sview,
@@ -64,14 +63,11 @@ struct _GitMainWindow
 
 typedef struct
 {
-  GtkWidget *revision_bar, *source_view, *statusbar, *menu_button;
+  GtkWidget *revision_bar, *source_view, *menu_button;
   GtkWidget *commit_dialog;
 
   GCancellable *file_dialog_cancellable;
 
-  guint source_state_context;
-  guint source_state_id;
-  guint source_state_handler;
   guint commit_selected_handler;
   guint commit_response_handler;
   guint revision_activated_handler;
@@ -122,9 +118,6 @@ git_main_window_class_init (GitMainWindowClass *klass)
                                                 revision_bar);
   gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
                                                 GitMainWindow,
-                                                statusbar);
-  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
-                                                GitMainWindow,
                                                 menu_button);
 }
 
@@ -152,16 +145,9 @@ git_main_window_init (GitMainWindow *self)
                         G_CALLBACK (git_main_window_on_revision),
                         self);
 
-  priv->source_state_handler = g_signal_connect_swapped
-    (priv->source_view, "notify::state",
-     G_CALLBACK (git_main_window_update_source_state), self);
   priv->commit_selected_handler = g_signal_connect
     (priv->source_view, "commit-selected",
      G_CALLBACK (git_main_window_on_commit_selected), self);
-
-  priv->source_state_context
-    = gtk_statusbar_get_context_id (GTK_STATUSBAR (priv->statusbar),
-                                    "source-state");
 
   const char *menu_resource = "/uk/co/busydoingnothing/blamebrowse/menu.ui";
   GtkBuilder *builder = gtk_builder_new_from_resource (menu_resource);
@@ -171,7 +157,6 @@ git_main_window_init (GitMainWindow *self)
                                   menu_model);
   g_object_unref (builder);
 
-  git_main_window_update_source_state (self);
   git_main_window_update_history_actions (self);
 }
 
@@ -189,8 +174,6 @@ git_main_window_dispose (GObject *object)
 
   if (priv->source_view)
     {
-      g_signal_handler_disconnect (priv->source_view,
-                                   priv->source_state_handler);
       g_signal_handler_disconnect (priv->source_view,
                                    priv->commit_selected_handler);
     }
@@ -324,56 +307,6 @@ git_main_window_set_file (GitMainWindow *main_window,
 
   if (priv->source_view)
     gtk_widget_grab_focus (priv->source_view);
-}
-
-static void
-git_main_window_update_source_state (GitMainWindow *main_window)
-{
-  GitMainWindowPrivate *priv =
-    git_main_window_get_instance_private (main_window);
-
-  if (priv->statusbar && priv->source_view)
-    {
-      if (priv->source_state_id)
-        {
-          gtk_statusbar_remove (GTK_STATUSBAR (priv->statusbar),
-                                priv->source_state_context,
-                                priv->source_state_id);
-          priv->source_state_id = 0;
-        }
-
-      switch (git_source_view_get_state (GIT_SOURCE_VIEW (priv->source_view)))
-        {
-        case GIT_SOURCE_VIEW_READY:
-          break;
-
-        case GIT_SOURCE_VIEW_ERROR:
-          {
-            const GError *error
-              = git_source_view_get_state_error (GIT_SOURCE_VIEW
-                                                 (priv->source_view));
-
-            if (error)
-              priv->source_state_id
-                = gtk_statusbar_push (GTK_STATUSBAR (priv->statusbar),
-                                      priv->source_state_context,
-                                      error->message);
-            else
-              priv->source_state_id
-                = gtk_statusbar_push (GTK_STATUSBAR (priv->statusbar),
-                                      priv->source_state_context,
-                                      _("Error"));
-          }
-          break;
-
-        case GIT_SOURCE_VIEW_LOADING:
-          priv->source_state_id
-            = gtk_statusbar_push (GTK_STATUSBAR (priv->statusbar),
-                                  priv->source_state_context,
-                                  _("Loading..."));
-          break;
-        }
-    }
 }
 
 static void

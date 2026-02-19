@@ -76,12 +76,6 @@
             <property name="vexpand">True</property>
           </object>
         </child>
-        <child>
-          <object class="GtkStatusbar" id="statusbar">
-            <property name="can-focus">False</property>
-            <property name="vexpand">False</property>
-          </object>
-        </child>
       </object>
     </child>
   </template>
