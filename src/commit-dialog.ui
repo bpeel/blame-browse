@@ -70,6 +70,7 @@
               <object class="GtkTextView" id="log_view">
                 <property name="editable">False</property>
                 <property name="cursor-visible">False</property>
+                <property name="monospace">True</property>
                 <property name="left-margin">8</property>
                 <property name="right-margin">8</property>
               </object>
