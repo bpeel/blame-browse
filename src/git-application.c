@@ -121,7 +121,7 @@ GitApplication *
 git_application_new (void)
 {
   return g_object_new (GIT_TYPE_APPLICATION,
-                       "application-id", "uk.co.busydoingnothing.blame_browser",
+                       "application-id", "uk.co.busydoingnothing.blame_browse",
                        "flags", G_APPLICATION_HANDLES_OPEN,
                        NULL);
 }
