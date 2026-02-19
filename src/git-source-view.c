@@ -44,11 +44,12 @@ typedef struct
   GitAnnotatedSource *paint_source, *load_source;
   guint loading_completed_handler;
   guint commit_selected_handler;
+  guint pulse_timeout;
 
   GitSourceViewState state;
   GError *state_error;
 
-  GtkWidget *scrolled_win, *text_view, *hash_view;
+  GtkWidget *source_box, *scrolled_win, *text_view, *hash_view, *progress_bar;
 } GitSourceViewPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GitSourceView,
@@ -106,6 +107,9 @@ git_source_view_class_init (GitSourceViewClass *klass)
                                                resource_name);
   gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
                                                 GitSourceView,
+                                                source_box);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
                                                 scrolled_win);
   gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
                                                 GitSourceView,
@@ -113,6 +117,9 @@ git_source_view_class_init (GitSourceViewClass *klass)
   gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
                                                 GitSourceView,
                                                 text_view);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
+                                                progress_bar);
 
   gtk_widget_class_set_layout_manager_type ((GtkWidgetClass *) (klass),
                                             GTK_TYPE_BOX_LAYOUT);
@@ -136,8 +143,7 @@ git_source_view_init (GitSourceView *sview)
 
   GtkLayoutManager *layout = gtk_widget_get_layout_manager (GTK_WIDGET (sview));
   gtk_orientable_set_orientation (GTK_ORIENTABLE (layout),
-                                  GTK_ORIENTATION_HORIZONTAL);
-  gtk_box_layout_set_spacing (GTK_BOX_LAYOUT (layout), 3);
+                                  GTK_ORIENTATION_VERTICAL);
 }
 
 static void
@@ -151,6 +157,18 @@ git_source_view_unref_loading_source (GitSourceView *sview)
                                    priv->loading_completed_handler);
       g_object_unref (priv->load_source);
       priv->load_source = NULL;
+    }
+}
+
+static void
+remove_pulse_timeout (GitSourceView *sview)
+{
+  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
+
+  if (priv->pulse_timeout)
+    {
+      g_source_remove (priv->pulse_timeout);
+      priv->pulse_timeout = 0;
     }
 }
 
@@ -179,6 +197,8 @@ git_source_view_dispose (GObject *object)
       g_signal_handler_disconnect (priv->hash_view,
                                    priv->commit_selected_handler);
     }
+
+  remove_pulse_timeout (sview);
 
   gtk_widget_dispose_template (GTK_WIDGET (sview), GIT_TYPE_SOURCE_VIEW);
 
@@ -288,11 +308,25 @@ git_source_view_on_commit_selected (GitHashView *source,
 }
 
 static void
+hide_progress_bar (GitSourceView *sview)
+{
+  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
+
+  if (priv->progress_bar)
+    {
+      remove_pulse_timeout (sview);
+      gtk_widget_set_visible (priv->progress_bar, FALSE);
+    }
+}
+
+static void
 git_source_view_on_completed (GitAnnotatedSource *source,
                               const GError *error,
                               GitSourceView *sview)
 {
   GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
+
+  hide_progress_bar (sview);
 
   if (error)
     git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
@@ -316,6 +350,24 @@ git_source_view_on_completed (GitAnnotatedSource *source,
   git_source_view_unref_loading_source (sview);
 }
 
+static gboolean
+pulse_cb (gpointer user_data)
+{
+  GitSourceView *sview = user_data;
+  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
+
+  if (priv->progress_bar)
+    {
+      gtk_progress_bar_pulse (GTK_PROGRESS_BAR (priv->progress_bar));
+      return G_SOURCE_CONTINUE;
+    }
+  else
+    {
+      priv->pulse_timeout = 0;
+      return G_SOURCE_REMOVE;
+    }
+}
+
 void
 git_source_view_set_file (GitSourceView *sview,
                           GFile *file,
@@ -336,17 +388,30 @@ git_source_view_set_file (GitSourceView *sview,
     = g_signal_connect (priv->load_source, "completed",
                         G_CALLBACK (git_source_view_on_completed), sview);
 
-  if (!git_annotated_source_fetch (priv->load_source,
-                                   file, revision,
-                                   &error))
+  if (git_annotated_source_fetch (priv->load_source,
+                                  file, revision,
+                                  &error))
+    {
+      git_source_view_set_state (sview, GIT_SOURCE_VIEW_LOADING, NULL);
+
+      if (priv->progress_bar)
+        {
+          gtk_widget_set_visible (priv->progress_bar, TRUE);
+          gtk_progress_bar_pulse (GTK_PROGRESS_BAR (priv->progress_bar));
+
+          if (priv->pulse_timeout == 0)
+            priv->pulse_timeout = g_timeout_add (100, pulse_cb, sview);
+        }
+    }
+  else
     {
       git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
       git_source_view_unref_loading_source (sview);
 
+      hide_progress_bar (sview);
+
       g_error_free (error);
     }
-  else
-    git_source_view_set_state (sview, GIT_SOURCE_VIEW_LOADING, NULL);
 }
 
 GitSourceViewState
