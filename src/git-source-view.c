@@ -49,7 +49,9 @@ typedef struct
   GitSourceViewState state;
   GError *state_error;
 
-  GtkWidget *source_box, *scrolled_win, *text_view, *hash_view, *progress_bar;
+  GtkWidget *source_box, *scrolled_win, *text_view, *hash_view;
+  GtkWidget *error_box, *error_label;
+  GtkWidget *progress_bar;
 } GitSourceViewPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE (GitSourceView,
@@ -117,6 +119,14 @@ git_source_view_class_init (GitSourceViewClass *klass)
   gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
                                                 GitSourceView,
                                                 text_view);
+
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
+                                                error_box);
+  gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
+                                                GitSourceView,
+                                                error_label);
+
   gtk_widget_class_bind_template_child_private (GTK_WIDGET_CLASS (klass),
                                                 GitSourceView,
                                                 progress_bar);
@@ -320,6 +330,23 @@ hide_progress_bar (GitSourceView *sview)
 }
 
 static void
+set_error_state (GitSourceView *sview, const GError *error)
+{
+  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
+
+  git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
+
+  if (priv->error_box)
+    gtk_widget_set_visible (priv->error_box, TRUE);
+
+  if (priv->source_box)
+    gtk_widget_set_visible (priv->source_box, FALSE);
+
+  if (priv->error_label)
+    gtk_label_set_text (GTK_LABEL (priv->error_label), error->message);
+}
+
+static void
 git_source_view_on_completed (GitAnnotatedSource *source,
                               const GError *error,
                               GitSourceView *sview)
@@ -329,7 +356,7 @@ git_source_view_on_completed (GitAnnotatedSource *source,
   hide_progress_bar (sview);
 
   if (error)
-    git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
+    set_error_state (sview, error);
   else
     {
       /* Forget the old painting source */
@@ -343,6 +370,12 @@ git_source_view_on_completed (GitAnnotatedSource *source,
 
       if (priv->hash_view)
         git_hash_view_set_source (GIT_HASH_VIEW (priv->hash_view), source);
+
+      if (priv->error_box)
+        gtk_widget_set_visible (priv->error_box, FALSE);
+
+      if (priv->source_box)
+        gtk_widget_set_visible (priv->source_box, TRUE);
 
       git_source_view_set_state (sview, GIT_SOURCE_VIEW_READY, NULL);
     }
@@ -405,7 +438,7 @@ git_source_view_set_file (GitSourceView *sview,
     }
   else
     {
-      git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
+      set_error_state (sview, error);
       git_source_view_unref_loading_source (sview);
 
       hide_progress_bar (sview);
