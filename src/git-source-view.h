@@ -39,20 +39,11 @@ struct _GitSourceViewClass
                             GitCommit *commit);
 };
 
-typedef enum {
-  GIT_SOURCE_VIEW_READY,
-  GIT_SOURCE_VIEW_LOADING,
-  GIT_SOURCE_VIEW_ERROR
-} GitSourceViewState;
-
 GtkWidget *git_source_view_new (void);
 
 void git_source_view_set_file (GitSourceView *sview,
                                GFile *file,
                                const gchar *revision);
-
-GitSourceViewState git_source_view_get_state (GitSourceView *sview);
-const GError *git_source_view_get_state_error (GitSourceView *sview);
 
 G_END_DECLS
 

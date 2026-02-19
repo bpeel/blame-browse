@@ -32,8 +32,6 @@
 #include "git-enum-types.h"
 
 static void git_source_view_dispose (GObject *object);
-static void git_source_view_get_property (GObject *object, guint property_id,
-                                          GValue *value, GParamSpec *pspec);
 
 static void git_source_view_on_commit_selected (GitHashView *source,
                                                 GitCommit *commit,
@@ -46,9 +44,6 @@ typedef struct
   guint commit_selected_handler;
   guint pulse_timeout;
 
-  GitSourceViewState state;
-  GError *state_error;
-
   GtkWidget *source_box, *scrolled_win, *text_view, *hash_view;
   GtkWidget *error_box, *error_label;
   GtkWidget *progress_bar;
@@ -57,13 +52,6 @@ typedef struct
 G_DEFINE_TYPE_WITH_PRIVATE (GitSourceView,
                             git_source_view,
                             GTK_TYPE_WIDGET);
-
-enum
-  {
-    PROP_0,
-
-    PROP_STATE,
-  };
 
 enum
   {
@@ -78,19 +66,8 @@ static void
 git_source_view_class_init (GitSourceViewClass *klass)
 {
   GObjectClass *gobject_class = (GObjectClass *) klass;
-  GParamSpec *pspec;
 
-  gobject_class->get_property = git_source_view_get_property;
   gobject_class->dispose = git_source_view_dispose;
-
-  pspec = g_param_spec_enum ("state",
-                             "State",
-                             "The state of loading the annotated source. "
-                             "Either ready, loading or error.",
-                             GIT_TYPE_SOURCE_VIEW_STATE,
-                             GIT_SOURCE_VIEW_READY,
-                             G_PARAM_READABLE);
-  g_object_class_install_property (gobject_class, PROP_STATE, pspec);
 
   client_signals[COMMIT_SELECTED]
     = g_signal_new ("commit-selected",
@@ -144,9 +121,6 @@ git_source_view_init (GitSourceView *sview)
 
   gtk_widget_init_template (GTK_WIDGET (sview));
 
-  priv->state = GIT_SOURCE_VIEW_READY;
-  priv->state_error = NULL;
-
   priv->commit_selected_handler
     = g_signal_connect (priv->hash_view, "commit-selected",
                         G_CALLBACK (git_source_view_on_commit_selected), sview);
@@ -196,12 +170,6 @@ git_source_view_dispose (GObject *object)
 
   git_source_view_unref_loading_source (sview);
 
-  if (priv->state_error)
-    {
-      g_error_free (priv->state_error);
-      priv->state_error = NULL;
-    }
-
   if (priv->hash_view)
     {
       g_signal_handler_disconnect (priv->hash_view,
@@ -215,25 +183,6 @@ git_source_view_dispose (GObject *object)
   G_OBJECT_CLASS (git_source_view_parent_class)->dispose (object);
 }
 
-static void
-git_source_view_get_property (GObject *object, guint property_id,
-                              GValue *value, GParamSpec *pspec)
-{
-  GitSourceView *sview = (GitSourceView *) object;
-  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
-
-  switch (property_id)
-    {
-    case PROP_STATE:
-      g_value_set_enum (value, priv->state);
-      break;
-
-    default:
-      G_OBJECT_WARN_INVALID_PROPERTY_ID (object, property_id, pspec);
-      break;
-    }
-}
-
 GtkWidget *
 git_source_view_new (void)
 {
@@ -241,24 +190,6 @@ git_source_view_new (void)
                                     NULL);
 
   return widget;
-}
-
-static void
-git_source_view_set_state (GitSourceView *sview,
-                           GitSourceViewState state,
-                           const GError *error)
-{
-  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
-
-  priv->state = state;
-  if (priv->state_error)
-    g_error_free (priv->state_error);
-  if (error)
-    priv->state_error = g_error_copy (error);
-  else
-    priv->state_error = NULL;
-
-  g_object_notify (G_OBJECT (sview), "state");
 }
 
 static void
@@ -334,8 +265,6 @@ set_error_state (GitSourceView *sview, const GError *error)
 {
   GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
 
-  git_source_view_set_state (sview, GIT_SOURCE_VIEW_ERROR, error);
-
   if (priv->error_box)
     gtk_widget_set_visible (priv->error_box, TRUE);
 
@@ -376,8 +305,6 @@ git_source_view_on_completed (GitAnnotatedSource *source,
 
       if (priv->source_box)
         gtk_widget_set_visible (priv->source_box, TRUE);
-
-      git_source_view_set_state (sview, GIT_SOURCE_VIEW_READY, NULL);
     }
 
   git_source_view_unref_loading_source (sview);
@@ -425,8 +352,6 @@ git_source_view_set_file (GitSourceView *sview,
                                   file, revision,
                                   &error))
     {
-      git_source_view_set_state (sview, GIT_SOURCE_VIEW_LOADING, NULL);
-
       if (priv->progress_bar)
         {
           gtk_widget_set_visible (priv->progress_bar, TRUE);
@@ -445,24 +370,4 @@ git_source_view_set_file (GitSourceView *sview,
 
       g_error_free (error);
     }
-}
-
-GitSourceViewState
-git_source_view_get_state (GitSourceView *sview)
-{
-  g_return_val_if_fail (GIT_IS_SOURCE_VIEW (sview), 0);
-
-  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
-
-  return priv->state;
-}
-
-const GError *
-git_source_view_get_state_error (GitSourceView *sview)
-{
-  g_return_val_if_fail (GIT_IS_SOURCE_VIEW (sview), 0);
-
-  GitSourceViewPrivate *priv = git_source_view_get_instance_private (sview);
-
-  return priv->state_error;
 }

@@ -22,7 +22,6 @@ enum_headers = [
         'git-common.h',
         'git-main-window.h',
         'git-reader.h',
-        'git-source-view.h',
 ]
 
 marshal = gnome.genmarshal('git-marshal',
