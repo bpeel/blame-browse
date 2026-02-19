@@ -3,8 +3,8 @@
   <requires lib="gtk+" version="3.24"/>
   <template class="GitMainWindow" parent="GtkApplicationWindow">
     <property name="title" translatable="yes">Blame Browse</property>
-    <property name="default-width">560</property>
-    <property name="default-height">460</property>
+    <property name="default-width">800</property>
+    <property name="default-height">600</property>
     <child type="titlebar">
       <object class="GtkHeaderBar">
         <property name="show-title-buttons">True</property>
